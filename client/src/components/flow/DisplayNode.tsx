@@ -1,7 +1,7 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-07 16:11:04
- * @LastEditTime: 2025-02-07 16:36:15
+ * @LastEditTime: 2025-02-11 13:18:07
  * @Description: _(:з」∠)_
  */
 import React from 'react';
@@ -22,13 +22,13 @@ function DisplayNode({ }: DisplayNodeProps) {
   return (
     <div>
       <Card className="focus:ring-2 overflow-visible">
-      <LabelHandle
-        type="target"
-        limit={1}
-        position={Position.Left}
-        onChange={(display) => { setText(display) }}
-      />
-      <CardHeader className='flex items-center justify-between'>
+        <LabelHandle
+          type="target"
+          limit={1}
+          position={Position.Left}
+          onChange={(display) => { setText(display) }}
+        />
+        <CardHeader className='flex items-center justify-between'>
           <div className='flex items-center space-x-1'>
             <span>Display</span>
             <Popover placement="top">
@@ -53,6 +53,7 @@ function DisplayNode({ }: DisplayNodeProps) {
             placeholder="Empty"
             value={text}
             isReadOnly
+            className='nowheel nodrag'
           />
         </CardBody>
       </Card>

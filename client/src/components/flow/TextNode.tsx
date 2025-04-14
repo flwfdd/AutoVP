@@ -1,7 +1,7 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-06 13:43:27
- * @LastEditTime: 2025-02-07 16:25:58
+ * @LastEditTime: 2025-02-11 13:18:36
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
@@ -57,6 +57,7 @@ function TextNode({ id }: TextNodeProps) {
             value={text}
             onChange={onChange}
             onClear={() => { onChange({ target: { value: '' } }) }}
+            className='nowheel nodrag'
           />
         </CardBody>
         <LabelHandle

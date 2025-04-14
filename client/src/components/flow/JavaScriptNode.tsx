@@ -1,7 +1,7 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-06 13:43:27
- * @LastEditTime: 2025-02-07 17:12:54
+ * @LastEditTime: 2025-02-11 13:26:51
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
@@ -102,7 +102,6 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
     evalCode += '\n' + code;
     // Run
     try {
-      console.log(evalCode);
       const output = eval(evalCode);
       updateNodeData(id, { output: { [outputHandleId]: output } });
     } catch (e: any) {
@@ -173,6 +172,7 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
             value={code}
             onChange={onCodeChange}
             onClear={() => setCode('')}
+            className='nowheel nodrag'
           />
           <Divider className='my-2' />
         </CardBody>

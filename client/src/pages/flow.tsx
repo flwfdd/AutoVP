@@ -1,7 +1,7 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-01-17 21:43:17
- * @LastEditTime: 2025-02-07 16:23:53
+ * @LastEditTime: 2025-02-11 12:58:32
  * @Description: _(:з」∠)_
  */
 import DefaultLayout from "@/layouts/default";
@@ -28,8 +28,9 @@ import TextNode from '@/components/flow/TextNode';
 import JavaScriptNode from "@/components/flow/JavaScriptNode";
 import { useTheme } from "@/hooks/use-theme";
 import DisplayNode from "@/components/flow/DisplayNode";
+import LLMNode from "@/components/flow/LLMNode";
 
-const nodeTypes = { text: TextNode, display: DisplayNode, javascript: JavaScriptNode };
+const nodeTypes = { text: TextNode, display: DisplayNode, javascript: JavaScriptNode, llm: LLMNode };
 
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
@@ -98,6 +99,10 @@ function Flow() {
           <Button draggable color="primary" variant="shadow" className="w-full"
             onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'javascript')}>
             JavaScript
+          </Button>
+          <Button draggable color="primary" variant="shadow" className="w-full"
+            onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'llm')}>
+            LLM
           </Button>
         </div>
 
