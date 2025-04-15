@@ -1,18 +1,22 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-06 13:43:27
- * @LastEditTime: 2025-02-11 13:18:36
+ * @LastEditTime: 2025-04-16 01:31:25
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
-import { Card, CardHeader, CardBody, Divider, Textarea, Button, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import {
   NodeProps,
   Position,
   useReactFlow,
 } from '@xyflow/react';
 import LabelHandle from './LabelHandle';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 interface TextNodeProps extends NodeProps {
   data: { output: { [key: string]: any } };
@@ -33,33 +37,29 @@ function TextNode({ id }: TextNodeProps) {
         <CardHeader className='flex items-center justify-between'>
           <div className='flex items-center space-x-1'>
             <span>Text</span>
-            <Popover placement="top">
-              <PopoverTrigger>
-                <Button isIconOnly size="sm" variant='light' >
-                  <QuestionMarkCircleIcon className='p-1' />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <div className="px-1 py-2">
-                  Text node provides a text source.
-                </div>
-              </PopoverContent>
-            </Popover>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Text node provides a text source.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className='flex items-center space-x-1'>
           </div>
         </CardHeader>
-        <Divider />
-        <CardBody>
+        <Separator />
+        <CardContent>
           <Textarea
-            isClearable
             placeholder="Enter text"
             value={text}
             onChange={onChange}
-            onClear={() => { onChange({ target: { value: '' } }) }}
             className='nowheel nodrag'
           />
-        </CardBody>
+        </CardContent>
         <LabelHandle
           id={outputHandleId}
           type="source"

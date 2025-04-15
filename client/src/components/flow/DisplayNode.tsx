@@ -1,17 +1,21 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-07 16:11:04
- * @LastEditTime: 2025-02-11 13:18:07
+ * @LastEditTime: 2025-04-16 01:29:22
  * @Description: _(:з」∠)_
  */
 import React from 'react';
-import { Card, CardHeader, CardBody, Divider, Textarea, Button, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import {
   NodeProps,
   Position,
 } from '@xyflow/react';
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import LabelHandle from './LabelHandle';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 interface DisplayNodeProps extends NodeProps {
 }
@@ -31,31 +35,29 @@ function DisplayNode({ }: DisplayNodeProps) {
         <CardHeader className='flex items-center justify-between'>
           <div className='flex items-center space-x-1'>
             <span>Display</span>
-            <Popover placement="top">
-              <PopoverTrigger>
-                <Button isIconOnly size="sm" variant='light' >
-                  <QuestionMarkCircleIcon className='p-1' />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <div className="px-1 py-2">
-                  Display node displays the output.
-                </div>
-              </PopoverContent>
-            </Popover>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Display node displays the output.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className='flex items-center space-x-1'>
           </div>
         </CardHeader>
-        <Divider />
-        <CardBody>
+        <Separator />
+        <CardContent>
           <Textarea
             placeholder="Empty"
             value={text}
-            isReadOnly
+            readOnly
             className='nowheel nodrag'
           />
-        </CardBody>
+        </CardContent>
       </Card>
     </div>
   );

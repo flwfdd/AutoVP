@@ -1,11 +1,17 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-06 13:43:27
- * @LastEditTime: 2025-02-11 13:26:51
+ * @LastEditTime: 2025-04-16 02:09:56
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
-import { Card, CardHeader, CardBody, Divider, Textarea, Input, Spacer, Popover, PopoverTrigger, PopoverContent, CircularProgress } from "@heroui/react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle, PlayCircle, XCircle } from "lucide-react";
 import {
   Edge,
   NodeProps,
@@ -13,8 +19,6 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import LabelHandle from './LabelHandle';
-import { Button } from '@heroui/button';
-import { PlayCircleIcon, QuestionMarkCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 
 interface JavaScriptNodeProps extends NodeProps {
@@ -40,20 +44,18 @@ const ParamLabel = React.memo(({
   return (
     <div className="flex items-center justify-center space-x-2 p-1">
       <Input
-        size="sm"
         placeholder="Var Name"
         className="text-xs"
         value={name}
-        color={name ? undefined : 'warning'}
         onChange={(evt) => onPramChange(index, evt)}
       />
       <Button
-        isIconOnly
-        size="sm"
-        variant='light'
-        onPress={() => { onRemoveParam(index) }}
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6"
+        onClick={() => { onRemoveParam(index) }}
       >
-        <XCircleIcon className='p-1' />
+        <XCircle className="h-4 w-4" />
       </Button>
     </div>
   );
@@ -65,7 +67,7 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
   const [outputHandleId] = React.useState(String(Math.random()));
   // Init code editor
   const [code, setCode] = React.useState(data.code || '');
-  const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
+  const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(evt.target.value);
   }, []);
 
@@ -109,7 +111,7 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
     } finally {
       setRunning(false);
     }
-  } ,[params, code, outputHandleId, updateNodeData]);
+  }, [params, code, outputHandleId, updateNodeData]);
 
   return (
     <div>
@@ -117,29 +119,27 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
         <CardHeader className='flex items-center justify-between'>
           <div className='flex items-center space-x-1'>
             <span>JavaScript</span>
-            <Popover placement="top">
-              <PopoverTrigger>
-                <Button isIconOnly size="sm" variant='light' >
-                  <QuestionMarkCircleIcon className='p-1' />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <div className="px-1 py-2">
-                  JavaScript node runs JavaScript code. <br />
-                  You can use the input parameters as variables in your code. <br />
-                  The value of the last expression will be the output.
-                </div>
-              </PopoverContent>
-            </Popover>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>JavaScript node runs JavaScript code.</p>
+                <p>You can use the input parameters as variables in your code.</p>
+                <p>The value of the last expression will be the output.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className='flex items-center space-x-1'>
-            <Button isIconOnly size="sm" variant='light' onPress={onRun} isDisabled={running}>
-              {running ? <CircularProgress size="sm" strokeWidth={4} className='p-1' aria-label='running'/> : <PlayCircleIcon className='p-1' />}
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRun} disabled={running}>
+              {running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />}
             </Button>
           </div>
         </CardHeader>
 
-        <Divider className='mb-2' />
+        <Separator className='mb-2' />
         {
           params.map((param, index) => (
             <LabelHandle
@@ -161,21 +161,19 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
             />
           ))
         }
-        <CardBody className='pb-0'>
-          <Button size="sm" variant='shadow' onPress={() => onAddParam()}>
+        <CardContent className='pb-0'>
+          <Button variant="outline" size="sm" onClick={() => onAddParam()}>
             Add Input
           </Button>
-          <Divider className='my-2' />
+          <Separator className='my-2' />
           <Textarea
             placeholder='JavaScript Code'
-            isClearable
             value={code}
             onChange={onCodeChange}
-            onClear={() => setCode('')}
             className='nowheel nodrag'
           />
-          <Divider className='my-2' />
-        </CardBody>
+          <Separator className='my-2' />
+        </CardContent>
 
         <LabelHandle
           id={outputHandleId}
@@ -184,7 +182,7 @@ function JavaScriptNode({ id, data }: JavaScriptNodeProps) {
           label="Output"
           className='mb-2'
         />
-        <Spacer className='h-2' />
+        <div className="h-2" />
       </Card>
     </div>
   );

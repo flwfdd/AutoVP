@@ -5,15 +5,16 @@
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
-import { Card, CardHeader, CardBody, Spacer, Popover, PopoverTrigger, PopoverContent, CircularProgress } from "@heroui/react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle, PlayCircle } from "lucide-react";
 import {
   NodeProps,
   Position,
   useReactFlow,
 } from '@xyflow/react';
 import LabelHandle from './LabelHandle';
-import { Button } from '@heroui/button';
-import { PlayCircleIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { OpenAI } from 'openai';
 
@@ -72,28 +73,26 @@ function LLMNode({ id }: LLMNodeProps) {
         <CardHeader className='flex items-center justify-between'>
           <div className='flex items-center space-x-1'>
             <span>LLM</span>
-            <Popover placement="top">
-              <PopoverTrigger>
-                <Button isIconOnly size="sm" variant='light' >
-                  <QuestionMarkCircleIcon className='p-1' />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent>
-                <div className="px-1 py-2">
-                  LLM node runs Large Language Models.
-                </div>
-              </PopoverContent>
-            </Popover>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>LLM node runs Large Language Models.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className='flex items-center space-x-1'>
-            <Button isIconOnly size="sm" variant='light' onPress={onRun} isDisabled={running}>
-              {running ? <CircularProgress size="sm" strokeWidth={4} className='p-1' aria-label='running' /> : <PlayCircleIcon className='p-1' />}
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRun} disabled={running}>
+              {running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />}
             </Button>
           </div>
         </CardHeader>
 
-        <CardBody className='pb-0'>
-        </CardBody>
+        <CardContent className='pb-0'>
+        </CardContent>
 
         <LabelHandle
           id={outputHandleId}
@@ -102,7 +101,7 @@ function LLMNode({ id }: LLMNodeProps) {
           label="Output"
           className='mb-2'
         />
-        <Spacer className='h-2' />
+        <div className="h-2" />
       </Card>
     </div>
   );

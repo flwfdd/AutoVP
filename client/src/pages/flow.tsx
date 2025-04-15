@@ -1,11 +1,9 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-01-17 21:43:17
- * @LastEditTime: 2025-02-11 12:58:32
+ * @LastEditTime: 2025-04-16 01:52:19
  * @Description: _(:з」∠)_
  */
-import DefaultLayout from "@/layouts/default";
-import { Button, Divider } from "@heroui/react";
 import { useCallback, useEffect } from 'react';
 import {
   ReactFlow,
@@ -26,9 +24,11 @@ import '@xyflow/react/dist/style.css';
 
 import TextNode from '@/components/flow/TextNode';
 import JavaScriptNode from "@/components/flow/JavaScriptNode";
-import { useTheme } from "@/hooks/use-theme";
+import { useTheme } from "@/components/theme-provider";
 import DisplayNode from "@/components/flow/DisplayNode";
 import LLMNode from "@/components/flow/LLMNode";
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 
 const nodeTypes = { text: TextNode, display: DisplayNode, javascript: JavaScriptNode, llm: LLMNode };
 
@@ -39,7 +39,7 @@ function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, getNodes, updateNodeData } = useReactFlow();
-  const { isDark } = useTheme();
+  const { isDarkMode } = useTheme();
 
   // Update for nodes
   useEffect(() => {
@@ -82,25 +82,25 @@ function Flow() {
   }, []);
 
   return (
-    <div className="w-full h-full border flex flex-row">
+    <div className="w-full h-screen flex flex-row">
       <div className="w-96 h-auto p-4 box-border shadow-medium rounded-r-lg">
         <div className="text-lg font-bold">Components</div>
         <div className="text-sm text-gray-500">Drag and drop to add nodes</div>
-        <Divider className="my-2" />
+        <Separator className="my-2" />
         <div className="space-y-2">
-          <Button draggable color="primary" variant="shadow" className="w-full"
+          <Button draggable className="w-full"
             onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'text')}>
             Text
           </Button>
-          <Button draggable color="primary" variant="shadow" className="w-full"
+          <Button draggable className="w-full"
             onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'display')}>
             Display
           </Button>
-          <Button draggable color="primary" variant="shadow" className="w-full"
+          <Button draggable className="w-full"
             onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'javascript')}>
             JavaScript
           </Button>
-          <Button draggable color="primary" variant="shadow" className="w-full"
+          <Button draggable className="w-full"
             onDragStart={(event) => event.dataTransfer.setData('application/reactflow', 'llm')}>
             LLM
           </Button>
@@ -116,7 +116,7 @@ function Flow() {
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        colorMode={isDark ? 'dark' : 'light'}
+        colorMode={isDarkMode ? 'dark' : 'light'}
       >
         <Controls />
         <MiniMap />
@@ -128,10 +128,8 @@ function Flow() {
 
 export default function FlowPage() {
   return (
-    <DefaultLayout>
-      <ReactFlowProvider>
-        <Flow />
-      </ReactFlowProvider>
-    </DefaultLayout>
+    <ReactFlowProvider>
+      <Flow />
+    </ReactFlowProvider>
   );
 }
