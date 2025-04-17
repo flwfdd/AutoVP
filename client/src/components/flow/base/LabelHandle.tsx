@@ -1,7 +1,7 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-06 19:11:30
- * @LastEditTime: 2025-02-07 17:10:48
+ * @LastEditTime: 2025-04-16 20:57:15
  * @Description: _(:з」∠)_
  */
 import { Handle, HandleProps, useNodeConnections, useNodesData } from '@xyflow/react';
@@ -17,13 +17,13 @@ const flexDirections = {
 interface LabelHandleProps extends HandleProps {
   label?: React.ReactNode;
   limit?: number; // Max number of connections
-  onChange?: (output:any) => void; // Update data from source node
+  onChange?: (output: any) => void; // Update data from source node
 }
 
 
 const LabelHandle = (props: LabelHandleProps) => {
   const [id] = useState(props.id ? props.id : String(Math.random()));
-  const connections = useNodeConnections({handleId:id, handleType: props.type});
+  const connections = useNodeConnections({ handleId: id, handleType: props.type });
 
   const sourceNodeData = useNodesData(connections[0]?.source) as { data: { output: { [key: string]: any } } } | null;
 
@@ -40,7 +40,7 @@ const LabelHandle = (props: LabelHandleProps) => {
   />)
 
   return props.label ? (
-    <div className={`relative flex items-center ${flexDirections[props.position]}`}>
+    <div className={`relative flex items-center text-sm ${flexDirections[props.position]}`}>
       {handle}
       {props.label}
     </div>

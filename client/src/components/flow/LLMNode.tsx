@@ -1,22 +1,15 @@
 /*
  * @Author: flwfdd
  * @Date: 2025-02-11 12:35:34
- * @LastEditTime: 2025-04-15 01:42:23
+ * @LastEditTime: 2025-04-16 11:44:34
  * @Description: _(:з」∠)_
  */
 import React, { useCallback } from 'react';
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { HelpCircle, PlayCircle } from "lucide-react";
-import {
-  NodeProps,
-  Position,
-  useReactFlow,
-} from '@xyflow/react';
-import LabelHandle from './LabelHandle';
+import { NodeProps, Position, useReactFlow } from '@xyflow/react';
+import { PlayCircle } from "lucide-react";
 import { toast } from 'sonner';
 import { OpenAI } from 'openai';
+import BaseNode from './base/BaseNode';
 
 interface LLMNodeProps extends NodeProps {
   data: {
@@ -25,7 +18,7 @@ interface LLMNodeProps extends NodeProps {
   };
 }
 
-function LLMNode({ id }: LLMNodeProps) {
+function LLMNode(props: LLMNodeProps) {
   // Init Output
   const { updateNodeData } = useReactFlow();
   const [outputHandleId] = React.useState(String(Math.random()));
@@ -53,57 +46,42 @@ function LLMNode({ id }: LLMNodeProps) {
 
       console.log(output);
 
-      updateNodeData(id, { output: { [outputHandleId]: output } });
+      updateNodeData(props.id, { output: { [outputHandleId]: output } });
     } catch (e: any) {
       toast.error('Error: ' + e.message);
     } finally {
       setRunning(false);
     }
-  }, [prompt, outputHandleId, updateNodeData]);
+  }, [prompt, outputHandleId, updateNodeData, props.id]);
 
   return (
-    <div>
-      <Card className="focus:ring-2 overflow-visible">
-        <LabelHandle
-          type="target"
-          limit={1}
-          position={Position.Left}
-          onChange={(prompt) => { setPrompt(prompt) }}
-        />
-        <CardHeader className='flex items-center justify-between'>
-          <div className='flex items-center space-x-1'>
-            <span>LLM</span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>LLM node runs Large Language Models.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-          <div className='flex items-center space-x-1'>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRun} disabled={running}>
-              {running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />}
-            </Button>
-          </div>
-        </CardHeader>
-
-        <CardContent className='pb-0'>
-        </CardContent>
-
-        <LabelHandle
-          id={outputHandleId}
-          type="source"
-          position={Position.Right}
-          label="Output"
-          className='mb-2'
-        />
-        <div className="h-2" />
-      </Card>
-    </div>
+    <BaseNode
+      {...props}
+      title="LLM"
+      description="LLM node runs Large Language Models."
+      handles={[
+        {
+          type: 'target',
+          position: Position.Left,
+          limit: 1,
+          onChange: (prompt) => { setPrompt(prompt) }
+        },
+        {
+          id: outputHandleId,
+          type: 'source',
+          position: Position.Right,
+          label: "Output",
+        }
+      ]}
+      actions={[
+        {
+          icon: running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
+          onClick: onRun,
+          disabled: running,
+          tooltip: "Run LLM"
+        }
+      ]}
+    />
   );
 }
 
