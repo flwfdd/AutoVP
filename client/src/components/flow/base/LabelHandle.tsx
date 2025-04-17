@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-02-06 19:11:30
- * @LastEditTime: 2025-04-16 20:57:15
- * @Description: _(:з」∠)_
- */
 import { Handle, HandleProps, useNodeConnections, useNodesData } from '@xyflow/react';
 import { useEffect, useState } from 'react';
 

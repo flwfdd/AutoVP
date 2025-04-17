@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-03-26 16:22:09
- * @LastEditTime: 2025-04-16 02:11:26
- * @Description: _(:з」∠)_
- */
 import { Route, Routes } from "react-router"
 import FlowPage from "./pages/flow"
 import { ThemeProvider } from "./components/theme-provider"

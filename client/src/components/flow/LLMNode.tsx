@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-02-11 12:35:34
- * @LastEditTime: 2025-04-16 11:44:34
- * @Description: _(:з」∠)_
- */
 import React, { useCallback } from 'react';
 import { NodeProps, Position, useReactFlow } from '@xyflow/react';
 import { PlayCircle } from "lucide-react";

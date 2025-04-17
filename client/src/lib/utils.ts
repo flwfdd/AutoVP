@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-04-16 00:39:59
- * @LastEditTime: 2025-04-17 20:30:15
- * @Description: _(:з」∠)_
- */
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { WorkerOutput } from "./js-runner.worker";

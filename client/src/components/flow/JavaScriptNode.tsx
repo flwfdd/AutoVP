@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-02-06 13:43:27
- * @LastEditTime: 2025-04-17 19:28:17
- * @Description: _(:з」∠)_
- */
 import React, { useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

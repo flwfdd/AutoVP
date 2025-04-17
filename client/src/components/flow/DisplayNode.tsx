@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-02-07 16:11:04
- * @LastEditTime: 2025-04-17 20:34:26
- * @Description: _(:з」∠)_
- */
 import React from 'react';
 import { NodeProps, Position } from '@xyflow/react';
 import { Textarea } from "@/components/ui/textarea";

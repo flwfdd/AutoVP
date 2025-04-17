@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-04-16 11:13:31
- * @LastEditTime: 2025-04-16 17:02:48
- * @Description: 基础节点组件
- */
 import React from 'react';
 import { NodeProps, Position } from '@xyflow/react';
 import { Card, CardHeader, CardContent } from "@/components/ui/card";

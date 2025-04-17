@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-04-17 19:28:11
- * @LastEditTime: 2025-04-17 20:13:55
- * @Description: Run code by web worker
- */
 interface WorkerInput {
     code: string;
     params: Record<string, any>;

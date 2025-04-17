@@ -1,9 +1,3 @@
-/*
- * @Author: flwfdd
- * @Date: 2025-01-17 21:43:17
- * @LastEditTime: 2025-04-16 01:52:19
- * @Description: _(:з」∠)_
- */
 import { useCallback, useEffect } from 'react';
 import {
   ReactFlow,
