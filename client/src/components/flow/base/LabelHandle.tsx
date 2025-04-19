@@ -1,5 +1,5 @@
-import { Handle, HandleProps, useNodeConnections, useNodesData } from '@xyflow/react';
-import { useEffect, useState } from 'react';
+import { Handle, HandleProps, useNodeConnections } from '@xyflow/react';
+import { useState } from 'react';
 
 const flexDirections = {
   top: "flex-col pt-2",
@@ -9,9 +9,9 @@ const flexDirections = {
 };
 
 interface LabelHandleProps extends HandleProps {
-  label?: React.ReactNode;
-  limit?: number; // Max number of connections
-  onChange?: (output: any) => void; // Update data from source node
+  label?: React.ReactNode; // 显示标签
+  limit?: number; // 最大连接数
+  // onChange?: (output: any) => void; // 数据更新回调 用于实时同步上下游数据
 }
 
 
@@ -19,13 +19,13 @@ const LabelHandle = (props: LabelHandleProps) => {
   const [id] = useState(props.id ? props.id : String(Math.random()));
   const connections = useNodeConnections({ handleId: id, handleType: props.type });
 
-  const sourceNodeData = useNodesData(connections[0]?.source) as { data: { output: { [key: string]: any } } } | null;
-
-  useEffect(() => {
-    if (props.onChange && sourceNodeData?.data.output && connections[0].sourceHandle) {
-      props.onChange(sourceNodeData.data.output[connections[0].sourceHandle]);
-    }
-  }, [sourceNodeData]);
+  // // 当上游数据更新时通知下游
+  // const sourceNodeData = useNodesData(connections[0]?.source) as { data: { output: { [key: string]: any } } } | null;
+  // useEffect(() => {
+  //   if (props.onChange && sourceNodeData?.data.output && connections[0].sourceHandle) {
+  //     props.onChange(sourceNodeData.data.output[connections[0].sourceHandle]);
+  //   }
+  // }, [sourceNodeData]);
 
   const handle = (<Handle
     {...props}

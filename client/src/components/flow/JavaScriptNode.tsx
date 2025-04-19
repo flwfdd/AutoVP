@@ -1,27 +1,52 @@
-import React, { useCallback } from 'react';
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { PlayCircle, XCircle } from "lucide-react";
-import {
-  Edge,
-  NodeProps,
-  Position,
-  useReactFlow,
-} from '@xyflow/react';
-import BaseNode from './base/BaseNode';
-import { toast } from 'sonner';
+import { Textarea } from "@/components/ui/textarea";
+import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from "@/lib/flow/flow";
 import { workerEval } from '@/lib/utils';
+import {
+  Position,
+  useReactFlow
+} from '@xyflow/react';
+import { PlayCircle, XCircle } from "lucide-react";
+import React, { useCallback } from 'react';
+import { toast } from 'sonner';
+import BaseNode from './base/BaseNode';
 
-interface JavaScriptNodeProps extends NodeProps {
-  data: {
-    code: string,
-    output: { [key: string]: any },
-    edges: Edge[],
-    setEdges: React.Dispatch<React.SetStateAction<Edge[]>>
-  };
+
+interface IJavaScriptNodeInput extends INodeIO {
+  [key: string]: any
 }
+interface IJavaScriptNodeOutput extends INodeIO {
+  [key: string]: any
+}
+interface IJavaScriptNodeData extends INodeData {
+  code: string;
+}
+interface IJavaScriptNodeState extends INodeState {
+  running: boolean;
+}
+
+export const JavaScriptNodeType: INodeType<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
+  id: 'javascript',
+  name: 'JavaScript',
+  description: 'JavaScript node runs JavaScript code in an async function. You can use the input parameters as variables in your code. The value returned will be the output.',
+  defaultData: { code: '' },
+  defaultState: { running: false },
+  ui: JavaScriptNodeElement,
+  async run(context: INodeContext<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
+    context.updateState({ running: true });
+    let output: any;
+    try {
+      output = await workerEval(context.data.code, context.input);
+    } catch (e: any) {
+      toast.error('Error: ' + e.message);
+    } finally {
+      context.updateState({ running: false });
+    }
+    return { output: output };
+  }
+};
 
 const ParamLabel = React.memo(({
   index,
@@ -53,15 +78,14 @@ const ParamLabel = React.memo(({
   );
 });
 
-function JavaScriptNode(props: JavaScriptNodeProps) {
-  // Init Output
-  const { updateNodeData } = useReactFlow();
-  const [outputHandleId] = React.useState(String(Math.random()));
+function JavaScriptNodeElement(props: INodeProps<IJavaScriptNodeData, IJavaScriptNodeState>) {
   // Init code editor
-  const [code, setCode] = React.useState(props.data.code || '');
+  const { updateNodeData } = useReactFlow();
+  const [code, setCode] = React.useState(props.data.data.code || '');
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCode(evt.target.value);
-  }, []);
+    updateNodeData(props.id, { data: { code: evt.target.value } });
+  }, [props.id, updateNodeData]);
 
   // Init input params
   const [params, setParams] = React.useState<{ id: string, name: string, value: any }[]>([]);
@@ -84,20 +108,6 @@ function JavaScriptNode(props: JavaScriptNodeProps) {
     setParams((prevParams) => prevParams.filter((_, i) => i !== index));
   }, [params, props.data.setEdges]);
 
-  const [running, setRunning] = React.useState(false);
-  const onRun = useCallback(async () => {
-    setRunning(true);
-
-    try {
-      const output = await workerEval(code, params);
-      updateNodeData(props.id, { output: { [outputHandleId]: output } });
-    } catch (e: any) {
-      toast.error('Error: ' + e.message);
-    } finally {
-      setRunning(false);
-    }
-  }, [params, code, outputHandleId, updateNodeData, props.id]);
-
   return (
     <BaseNode
       {...props}
@@ -105,7 +115,7 @@ function JavaScriptNode(props: JavaScriptNodeProps) {
       description="JavaScript node runs JavaScript code. You can use the input parameters as variables in your code. The value of the last expression will be the output."
       handles={[
         ...params.map((param, index) => ({
-          id: param.id,
+          id: param.name,
           type: 'target' as const,
           position: Position.Left,
           limit: 1,
@@ -121,7 +131,7 @@ function JavaScriptNode(props: JavaScriptNodeProps) {
           />
         })),
         {
-          id: outputHandleId,
+          id: 'output',
           type: 'source' as const,
           position: Position.Right,
           label: "Output",
@@ -130,9 +140,9 @@ function JavaScriptNode(props: JavaScriptNodeProps) {
       ]}
       actions={[
         {
-          icon: running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
-          onClick: onRun,
-          disabled: running,
+          icon: props.data.state.running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
+          disabled: props.data.state.running,
+          onClick: () => { },
           tooltip: "Run code"
         }
       ]}
@@ -151,5 +161,3 @@ function JavaScriptNode(props: JavaScriptNodeProps) {
     </BaseNode>
   );
 }
-
-export default JavaScriptNode;

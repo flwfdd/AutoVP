@@ -1,14 +1,31 @@
-import React from 'react';
-import { NodeProps, Position } from '@xyflow/react';
 import { Textarea } from "@/components/ui/textarea";
+import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
 
-interface DisplayNodeProps extends NodeProps {
+interface IDisplayNodeInput extends INodeIO {
+  text: string;
 }
+interface IDisplayNodeOutput extends INodeIO { }
+interface IDisplayNodeData extends INodeData { }
+interface IDisplayNodeState extends INodeState {
+  text: string;
+}
+export const DisplayNodeType: INodeType<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput, IDisplayNodeOutput> = {
+  id: 'display',
+  name: 'Display',
+  description: 'Display node displays the output.',
+  defaultData: {},
+  defaultState: { text: '' },
+  ui: DisplayNodeElement,
+  async run(context: INodeContext<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput>): Promise<IDisplayNodeOutput> {
+    console.log('display', context.input.text);
+    context.updateState({ text: context.input.text });
+    return {};
+  }
+};
 
-function DisplayNode(props: DisplayNodeProps) {
-  const [text, setText] = React.useState('');
-
+function DisplayNodeElement(props: INodeProps<IDisplayNodeData, IDisplayNodeState>) {
   return (
     <BaseNode
       {...props}
@@ -16,21 +33,19 @@ function DisplayNode(props: DisplayNodeProps) {
       description="Display node displays the output."
       handles={[
         {
+          id: 'text',
           type: 'target',
           position: Position.Left,
           limit: 1,
-          onChange: (display) => { setText(display) }
         }
       ]}
     >
       <Textarea
         placeholder="Empty"
-        value={text}
+        value={props.data.state.text}
         readOnly
         className='nowheel nodrag'
       />
     </BaseNode>
   );
 }
-
-export default DisplayNode;

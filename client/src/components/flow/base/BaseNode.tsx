@@ -1,38 +1,12 @@
-import React from 'react';
-import { NodeProps, Position } from '@xyflow/react';
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { INodeProps } from '@/lib/flow/flow';
 import { HelpCircle } from "lucide-react";
 import LabelHandle from './LabelHandle';
-import { Separator } from '@/components/ui/separator';
 
-interface HandleConfig {
-  id?: string;
-  type: 'source' | 'target';
-  position: Position;
-  limit?: number;
-  label?: React.ReactNode;
-  className?: string;
-  onChange?: (value: any) => void;
-}
-
-interface ActionConfig {
-  icon: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  tooltip?: string;
-}
-
-interface BaseNodeProps extends NodeProps {
-  title: string;
-  description?: string;
-  handles?: HandleConfig[];
-  actions?: ActionConfig[];
-  children?: React.ReactNode;
-}
-
-function BaseNode({ title, description, handles = [], actions = [], children }: BaseNodeProps) {
+function BaseNode({ title, description, handles = [], actions = [], children }: INodeProps<any, any>) {
   return (
     <div>
       <Card className="focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60" tabIndex={-1}>
@@ -82,7 +56,6 @@ function BaseNode({ title, description, handles = [], actions = [], children }: 
               type={handle.type}
               position={handle.position}
               limit={handle.limit}
-              onChange={handle.onChange}
               label={handle.label}
               className={handle.className}
             />
@@ -99,7 +72,6 @@ function BaseNode({ title, description, handles = [], actions = [], children }: 
               type={handle.type}
               position={handle.position}
               limit={handle.limit}
-              onChange={handle.onChange}
               label={handle.label}
               className={handle.className}
             />

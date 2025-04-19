@@ -1,53 +1,68 @@
-import React, { useCallback } from 'react';
-import { NodeProps, Position, useReactFlow } from '@xyflow/react';
+import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { Position } from '@xyflow/react';
 import { PlayCircle } from "lucide-react";
 import { toast } from 'sonner';
-import { OpenAI } from 'openai';
 import BaseNode from './base/BaseNode';
 
-interface LLMNodeProps extends NodeProps {
-  data: {
-    prompt: string,
-    output: { [key: string]: any },
-  };
+// 初始化OpenAI
+// const openai = new OpenAI({
+//   baseURL: '',
+//   apiKey: '',
+//   dangerouslyAllowBrowser: true,
+// });
+
+const fakeLLM = async (prompt: string) => {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return {
+    choices: [{
+      message: { content: 'Prompt: ' + prompt }
+    }]
+  }
 }
 
-function LLMNode(props: LLMNodeProps) {
-  // Init Output
-  const { updateNodeData } = useReactFlow();
-  const [outputHandleId] = React.useState(String(Math.random()));
-  // Init LLM
-  const [prompt, setPrompt] = React.useState('');
-  const openai = new OpenAI({
-    apiKey: '',
-    dangerouslyAllowBrowser: true,
-  });
 
-  const [running, setRunning] = React.useState(false);
-  const onRun = useCallback(async () => {
-    setRunning(true);
-    // Run
+interface ILLMNodeInput extends INodeIO {
+  [key: string]: any
+}
+interface ILLMNodeOutput extends INodeIO {
+  [key: string]: any
+}
+interface ILLMNodeData extends INodeData {
+}
+interface ILLMNodeState extends INodeState {
+  running: boolean;
+}
+
+export const LLMNodeType: INodeType<ILLMNodeData, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput> = {
+  id: 'llm',
+  name: 'LLM',
+  description: 'LLM node runs Large Language Models.',
+  defaultData: {},
+  defaultState: { running: false },
+  ui: LLMNodeElement,
+  async run(context: INodeContext<ILLMNodeData, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
+    context.updateState({ running: true });
+    let output: any;
     try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          { role: 'user', content: prompt },
-        ],
-      });
-
-      const output = response.choices[0].message.content;
-
-      console.log(output);
-
-      updateNodeData(props.id, { output: { [outputHandleId]: output } });
+      // const response = await openai.chat.completions.create({
+      //   model: '',
+      //   messages: [
+      //     { role: 'system', content: 'You are a helpful assistant.' },
+      //     { role: 'user', content: context.input.prompt },
+      //   ],
+      // });
+      const response = await fakeLLM(context.input.prompt);
+      output = response.choices[0].message.content;
     } catch (e: any) {
       toast.error('Error: ' + e.message);
     } finally {
-      setRunning(false);
+      context.updateState({ running: false });
     }
-  }, [prompt, outputHandleId, updateNodeData, props.id]);
+    return { output: output };
+  }
+};
 
+function LLMNodeElement(props: INodeProps<ILLMNodeData, ILLMNodeState>) {
   return (
     <BaseNode
       {...props}
@@ -55,13 +70,13 @@ function LLMNode(props: LLMNodeProps) {
       description="LLM node runs Large Language Models."
       handles={[
         {
+          id: 'prompt',
           type: 'target',
           position: Position.Left,
           limit: 1,
-          onChange: (prompt) => { setPrompt(prompt) }
         },
         {
-          id: outputHandleId,
+          id: 'output',
           type: 'source',
           position: Position.Right,
           label: "Output",
@@ -69,14 +84,12 @@ function LLMNode(props: LLMNodeProps) {
       ]}
       actions={[
         {
-          icon: running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
-          onClick: onRun,
-          disabled: running,
+          icon: props.data.state.running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
+          onClick: () => { },
+          disabled: props.data.state.running,
           tooltip: "Run LLM"
         }
       ]}
     />
   );
 }
-
-export default LLMNode;

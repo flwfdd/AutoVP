@@ -1,5 +1,5 @@
 import { Route, Routes } from "react-router"
-import FlowPage from "./pages/flow"
+import FlowPage from "./pages/Flow"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "sonner"
 
