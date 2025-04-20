@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -23,8 +23,8 @@ import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { IEdge, INodeData, INodeState, INodeType, runFlow } from '@/lib/flow/flow';
-
+import { IEdge, INodeData, INodeIO, INodeState, INodeStateRun, INodeType, runFlow } from '@/lib/flow/flow';
+import { toast } from 'sonner';
 // 注册节点类型
 const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType];
 const nodeTypeMap = nodeTypeList.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
@@ -45,15 +45,8 @@ const initialEdges: Edge[] = [];
 function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const { screenToFlowPosition, getNodes, updateNodeData } = useReactFlow();
+  const { screenToFlowPosition, updateNodeData } = useReactFlow();
   const { isDarkMode } = useTheme();
-
-  // 将边信息提供给节点
-  useEffect(() => {
-    getNodes().forEach((node) => {
-      updateNodeData(node.id, { edges, setEdges });
-    });
-  }, [edges, setNodes]);
 
   // 连接边
   const onConnect = useCallback(
@@ -85,14 +78,12 @@ function Flow() {
         data: {
           data: nodeTypeMap[type].defaultData,
           state: nodeTypeMap[type].defaultState,
-          edges,
-          setEdges
         },
       };
       // 添加节点
       setNodes((nds) => nds.concat(newNode));
     },
-    [screenToFlowPosition, edges, setEdges]
+    [screenToFlowPosition]
   );
 
   // 拖拽节点时
@@ -107,6 +98,7 @@ function Flow() {
     type: nodeTypeMap[node.type as string],
     data: node.data.data as INodeData,
     state: node.data.state as INodeState,
+    runState: node.data.runState as INodeStateRun<INodeIO, INodeIO>,
   });
 
   // 将边转换为运行时边
@@ -129,11 +121,17 @@ function Flow() {
 
   // 运行流
   const run = useCallback(() => {
-    console.log(nodes, edges);
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    runFlow(iNodes, iEdges, (nodeId, data) => updateNodeData(nodeId, { data }), (nodeId, state) => updateNodeData(nodeId, { state }));
-  }, [nodes, edges]);
+    runFlow(iNodes, iEdges, (nodeId, data) => updateNodeData(nodeId, { data }), (nodeId, state) => updateNodeData(nodeId, { state }), (nodeId, runState) => updateNodeData(nodeId, { runState }))
+      .then(() => {
+        toast.success('Flow run success');
+      })
+      .catch((error: Error) => {
+        toast.error(error.message);
+        console.error('run flow error', error);
+      });
+  }, [nodes, edges, updateNodeData]);
 
   return (
     <div className="w-full h-screen flex flex-row">

@@ -8,24 +8,20 @@ interface IDisplayNodeInput extends INodeIO {
 }
 interface IDisplayNodeOutput extends INodeIO { }
 interface IDisplayNodeData extends INodeData { }
-interface IDisplayNodeState extends INodeState {
-  text: string;
-}
+interface IDisplayNodeState extends INodeState { }
 export const DisplayNodeType: INodeType<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput, IDisplayNodeOutput> = {
   id: 'display',
   name: 'Display',
   description: 'Display node displays the output.',
   defaultData: {},
-  defaultState: { text: '' },
-  ui: DisplayNodeElement,
-  async run(context: INodeContext<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput>): Promise<IDisplayNodeOutput> {
-    console.log('display', context.input.text);
-    context.updateState({ text: context.input.text });
+  defaultState: {},
+  ui: DisplayNodeUI,
+  async run(_context: INodeContext<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput>): Promise<IDisplayNodeOutput> {
     return {};
   }
 };
 
-function DisplayNodeElement(props: INodeProps<IDisplayNodeData, IDisplayNodeState>) {
+function DisplayNodeUI(props: INodeProps<IDisplayNodeData, IDisplayNodeState, IDisplayNodeInput, IDisplayNodeOutput>) {
   return (
     <BaseNode
       {...props}
@@ -42,7 +38,7 @@ function DisplayNodeElement(props: INodeProps<IDisplayNodeData, IDisplayNodeStat
     >
       <Textarea
         placeholder="Empty"
-        value={props.data.state.text}
+        value={props.data.runState?.input.text}
         readOnly
         className='nowheel nodrag'
       />

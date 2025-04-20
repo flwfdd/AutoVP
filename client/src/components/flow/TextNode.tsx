@@ -19,13 +19,13 @@ export const TextNodeType: INodeType<ITextNodeData, ITextNodeState, ITextNodeInp
   description: 'Text node provides a text source.',
   defaultData: { text: '' },
   defaultState: {},
-  ui: TextNodeElement,
+  ui: TextNodeUI,
   async run(context: INodeContext<ITextNodeData, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {
     return { text: context.data.text };
   }
 };
 
-export default function TextNodeElement(props: INodeProps<ITextNodeData, ITextNodeState>) {
+function TextNodeUI(props: INodeProps<ITextNodeData, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
   const [text, setText] = React.useState('');
   const { updateNodeData } = useReactFlow();
   const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {

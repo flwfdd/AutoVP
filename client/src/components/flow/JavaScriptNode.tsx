@@ -2,62 +2,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from "@/lib/flow/flow";
+import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { workerEval } from '@/lib/utils';
 import {
-  Position,
-  useReactFlow
+  Position
 } from '@xyflow/react';
-import { PlayCircle, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
-import { toast } from 'sonner';
 import BaseNode from './base/BaseNode';
-
 
 interface IJavaScriptNodeInput extends INodeIO {
   [key: string]: any
 }
 interface IJavaScriptNodeOutput extends INodeIO {
-  [key: string]: any
+  output: any;
 }
 interface IJavaScriptNodeData extends INodeData {
+  params: { id: string, name: string }[];
   code: string;
 }
-interface IJavaScriptNodeState extends INodeState {
-  running: boolean;
-}
+interface IJavaScriptNodeState extends INodeState { }
 
 export const JavaScriptNodeType: INodeType<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
   id: 'javascript',
   name: 'JavaScript',
   description: 'JavaScript node runs JavaScript code in an async function. You can use the input parameters as variables in your code. The value returned will be the output.',
-  defaultData: { code: '' },
-  defaultState: { running: false },
-  ui: JavaScriptNodeElement,
+  defaultData: { code: '', params: [] },
+  defaultState: {},
+  ui: JavaScriptNodeUI,
   async run(context: INodeContext<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
-    context.updateState({ running: true });
-    let output: any;
-    try {
-      output = await workerEval(context.data.code, context.input);
-    } catch (e: any) {
-      toast.error('Error: ' + e.message);
-    } finally {
-      context.updateState({ running: false });
-    }
+    const params = context.data.params.reduce<Record<string, any>>((acc, param) => {
+      acc[param.name] = context.input[param.id];
+      return acc;
+    }, {});
+    const output = await workerEval(context.data.code, params);
     return { output: output };
   }
 };
 
 const ParamLabel = React.memo(({
-  index,
+  id,
   name,
   onPramChange,
   onRemoveParam
 }: {
-  index: number;
+  id: string;
   name: string;
-  onPramChange: (index: number, evt: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveParam: (index: number) => void;
+  onPramChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveParam: (id: string) => void;
 }) => {
   return (
     <div className="flex items-center justify-center space-x-2 p-1">
@@ -65,12 +57,12 @@ const ParamLabel = React.memo(({
         placeholder="Input Name"
         className="text-xs nowheel nodrag"
         value={name}
-        onChange={(evt) => onPramChange(index, evt)}
+        onChange={(evt) => onPramChange(id, evt)}
       />
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => { onRemoveParam(index) }}
+        onClick={() => { onRemoveParam(id) }}
       >
         <XCircle />
       </Button>
@@ -78,35 +70,31 @@ const ParamLabel = React.memo(({
   );
 });
 
-function JavaScriptNodeElement(props: INodeProps<IJavaScriptNodeData, IJavaScriptNodeState>) {
-  // Init code editor
-  const { updateNodeData } = useReactFlow();
-  const [code, setCode] = React.useState(props.data.data.code || '');
+function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
+  const { data, setData } = useNodeUIContext(props);
+
+  // 编辑代码更新data
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCode(evt.target.value);
-    updateNodeData(props.id, { data: { code: evt.target.value } });
-  }, [props.id, updateNodeData]);
+    setData({ code: evt.target.value });
+  }, [setData]);
 
-  // Init input params
-  const [params, setParams] = React.useState<{ id: string, name: string, value: any }[]>([]);
-
+  // 添加输入参数 id作为输入map的key不会变
   const onAddParam = useCallback(() => {
-    setParams([...params, { id: String(Math.random()), name: '', value: '' }]);
-  }, [params]);
+    const newParams = [...data.params, { id: String(Math.random()), name: '' }];
+    setData({ params: newParams });
+  }, [data, setData]);
 
-  const onPramChange = useCallback((index: number, evt: React.ChangeEvent<HTMLInputElement>) => {
-    setParams(prevParams => {
-      const newParams = [...prevParams];
-      newParams[index].name = evt.target.value;
-      return newParams;
-    });
-  }, []);
+  // 编辑输入参数
+  const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+    const newParams = data.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
+    setData({ params: newParams });
+  }, [data, setData]);
 
-  const onRemoveParam = useCallback((index: number) => {
-    const paramId = params[index].id;
-    props.data.setEdges((prevEdges) => prevEdges.filter((edge) => edge.sourceHandle !== paramId && edge.targetHandle !== paramId));
-    setParams((prevParams) => prevParams.filter((_, i) => i !== index));
-  }, [params, props.data.setEdges]);
+  // 删除输入参数
+  const onRemoveParam = useCallback((id: string) => {
+    const newParams = data.params.filter(param => param.id !== id);
+    setData({ params: newParams });
+  }, [data, setData]);
 
   return (
     <BaseNode
@@ -114,17 +102,18 @@ function JavaScriptNodeElement(props: INodeProps<IJavaScriptNodeData, IJavaScrip
       title="JavaScript"
       description="JavaScript node runs JavaScript code. You can use the input parameters as variables in your code. The value of the last expression will be the output."
       handles={[
-        ...params.map((param, index) => ({
-          id: param.name,
+        ...data.params.map(param => ({
+          id: param.id,
           type: 'target' as const,
           position: Position.Left,
           limit: 1,
-          onChange: (value: any) => {
-            params[index].value = value;
-            setParams(params);
-          },
+          // // 输入参数值变化时回调
+          // onChange: (value: any) => {
+          //   params[index].value = value;
+          //   setParams(params);
+          // },
           label: <ParamLabel
-            index={index}
+            id={param.id}
             name={param.name}
             onPramChange={onPramChange}
             onRemoveParam={onRemoveParam}
@@ -138,14 +127,6 @@ function JavaScriptNodeElement(props: INodeProps<IJavaScriptNodeData, IJavaScrip
           className: 'mb-2'
         }
       ]}
-      actions={[
-        {
-          icon: props.data.state.running ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <PlayCircle className="h-4 w-4" />,
-          disabled: props.data.state.running,
-          onClick: () => { },
-          tooltip: "Run code"
-        }
-      ]}
     >
       <Button variant="outline" className='w-full' onClick={() => onAddParam()}>
         Add Input
@@ -153,7 +134,7 @@ function JavaScriptNodeElement(props: INodeProps<IJavaScriptNodeData, IJavaScrip
       <Separator className='my-2' />
       <Textarea
         placeholder='JavaScript Code'
-        value={code}
+        value={data.code}
         onChange={onCodeChange}
         className='nowheel nodrag'
       />
