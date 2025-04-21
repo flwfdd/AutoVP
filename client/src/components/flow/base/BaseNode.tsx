@@ -1,14 +1,14 @@
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INodeData, INodeIO, INodeProps, INodeState } from '@/lib/flow/flow';
+import { INodeConfig, INodeIO, INodeProps, INodeState } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
-import { CircleAlert, CircleCheckBig, HelpCircle, Hourglass, LoaderCircle } from "lucide-react";
+import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 import LabelHandle from './LabelHandle';
 
-function BaseNode<D extends INodeData, S extends INodeState, I extends INodeIO, O extends INodeIO>({ title, description, handles = [], children, data }: INodeProps<D, S, I, O>) {
+function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>({ nodeType, handles = [], children, data }: INodeProps<C, S, I, O>) {
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
 
@@ -25,19 +25,17 @@ function BaseNode<D extends INodeData, S extends INodeState, I extends INodeIO, 
   return (
     <div>
       <Card className="focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60" tabIndex={-1}>
-        <CardHeader className='flex items-center justify-between px-4 py-2'>
+        <CardHeader className='flex items-center justify-between p-2'>
           <div className='flex items-center space-x-1'>
-            <span>{title}</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <HelpCircle />
-                </Button>
+                <Badge variant="secondary">{nodeType.name}</Badge>
               </TooltipTrigger>
               <TooltipContent>
-                <p className='max-w-xs'>{description || `${title} node`}</p>
+                <p className='max-w-xs'>{nodeType.description || `${nodeType.name} node`}</p>
               </TooltipContent>
             </Tooltip>
+            <div className='text font-medium'>{data.config.name}</div>
           </div>
           <div className='flex items-center space-x-1'>
             {data.runState?.status === 'idle' && <Hourglass className="h-4 w-4" />}

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { workerEval } from '@/lib/utils';
 import {
   Position
@@ -17,25 +17,25 @@ interface IJavaScriptNodeInput extends INodeIO {
 interface IJavaScriptNodeOutput extends INodeIO {
   output: any;
 }
-interface IJavaScriptNodeData extends INodeData {
+interface IJavaScriptNodeConfig extends INodeConfig {
   params: { id: string, name: string }[];
   code: string;
 }
 interface IJavaScriptNodeState extends INodeState { }
 
-export const JavaScriptNodeType: INodeType<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
+export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
   id: 'javascript',
   name: 'JavaScript',
   description: 'JavaScript node runs JavaScript code in an async function. You can use the input parameters as variables in your code. The value returned will be the output.',
-  defaultData: { code: '', params: [] },
+  defaultConfig: { name: 'New JavaScript', code: '', params: [] },
   defaultState: {},
   ui: JavaScriptNodeUI,
-  async run(context: INodeContext<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
-    const params = context.data.params.reduce<Record<string, any>>((acc, param) => {
+  async run(context: INodeContext<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
+    const params = context.config.params.reduce<Record<string, any>>((acc, param) => {
       acc[param.name] = context.input[param.id];
       return acc;
     }, {});
-    const output = await workerEval(context.data.code, params);
+    const output = await workerEval(context.config.code, params);
     return { output: output };
   }
 };
@@ -70,39 +70,38 @@ const ParamLabel = React.memo(({
   );
 });
 
-function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeData, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
-  const { data, setData } = useNodeUIContext(props);
+function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
+  const { config, setConfig } = useNodeUIContext(props);
 
   // 编辑代码更新data
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setData({ code: evt.target.value });
-  }, [setData]);
+    setConfig({ code: evt.target.value });
+  }, [setConfig]);
 
   // 添加输入参数 id作为输入map的key不会变
   const onAddParam = useCallback(() => {
-    const newParams = [...data.params, { id: String(Math.random()), name: '' }];
-    setData({ params: newParams });
-  }, [data, setData]);
+    const newParams = [...config.params, { id: String(Math.random()), name: '' }];
+    setConfig({ params: newParams });
+  }, [config, setConfig]);
 
   // 编辑输入参数
   const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
-    const newParams = data.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
-    setData({ params: newParams });
-  }, [data, setData]);
+    const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
+    setConfig({ params: newParams });
+  }, [config, setConfig]);
 
   // 删除输入参数
   const onRemoveParam = useCallback((id: string) => {
-    const newParams = data.params.filter(param => param.id !== id);
-    setData({ params: newParams });
-  }, [data, setData]);
+    const newParams = config.params.filter(param => param.id !== id);
+    setConfig({ params: newParams });
+  }, [config, setConfig]);
 
   return (
     <BaseNode
       {...props}
-      title="JavaScript"
-      description="JavaScript node runs JavaScript code. You can use the input parameters as variables in your code. The value of the last expression will be the output."
+      nodeType={JavaScriptNodeType}
       handles={[
-        ...data.params.map(param => ({
+        ...config.params.map(param => ({
           id: param.id,
           type: 'target' as const,
           position: Position.Left,
@@ -134,7 +133,7 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeData, IJavaScriptNode
       <Separator className='my-2' />
       <Textarea
         placeholder='JavaScript Code'
-        value={data.code}
+        value={config.code}
         onChange={onCodeChange}
         className='nowheel nodrag'
       />

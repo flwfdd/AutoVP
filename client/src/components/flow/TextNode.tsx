@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
 import { Position, useReactFlow } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import BaseNode from './base/BaseNode';
@@ -8,36 +8,35 @@ interface ITextNodeInput extends INodeIO { }
 interface ITextNodeOutput extends INodeIO {
   text: string;
 }
-interface ITextNodeData extends INodeData {
+interface ITextNodeConfig extends INodeConfig {
   text: string;
 }
 interface ITextNodeState extends INodeState { }
 
-export const TextNodeType: INodeType<ITextNodeData, ITextNodeState, ITextNodeInput, ITextNodeOutput> = {
+export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput> = {
   id: 'text',
   name: 'Text',
   description: 'Text node provides a text source.',
-  defaultData: { text: '' },
+  defaultConfig: { name: 'New Text', text: '' },
   defaultState: {},
   ui: TextNodeUI,
-  async run(context: INodeContext<ITextNodeData, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {
-    return { text: context.data.text };
+  async run(context: INodeContext<ITextNodeConfig, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {
+    return { text: context.config.text };
   }
 };
 
-function TextNodeUI(props: INodeProps<ITextNodeData, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
+function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
   const [text, setText] = React.useState('');
   const { updateNodeData } = useReactFlow();
   const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setText(evt.target.value);
-    updateNodeData(props.id, { data: { text: evt.target.value } });
+    updateNodeData(props.id, { config: { text: evt.target.value } });
   }, [props.id, updateNodeData]);
 
   return (
     <BaseNode
       {...props}
-      title="Text"
-      description="Text node provides a text source."
+      nodeType={TextNodeType}
       handles={[
         {
           id: 'text',

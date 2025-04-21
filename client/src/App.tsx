@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router"
-import FlowPage from "./pages/Flow"
-import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "sonner"
+import { ThemeProvider } from "./components/theme-provider"
+import FlowPage from "./pages/Flow"
 
 function App() {
   return (
@@ -9,7 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<FlowPage />} />
       </Routes>
-      <Toaster />
+      <Toaster position="top-right" />
     </ThemeProvider>
   )
 }

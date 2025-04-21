@@ -7,7 +7,8 @@ export interface INodeIO {
 }
 
 // 节点持久化数据抽象
-export interface INodeData {
+export interface INodeConfig {
+  name: string;
   [key: string]: any;
 }
 
@@ -36,39 +37,38 @@ interface HandleConfig {
 }
 
 // 节点 UI Props 抽象
-export interface INodeProps<D extends INodeData, S extends INodeState, I extends INodeIO, O extends INodeIO> extends NodeProps {
-  title: string;
-  description?: string;
+export interface INodeProps<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> extends NodeProps {
+  nodeType: INodeType<C, S, I, O>;
   handles?: HandleConfig[];
   children?: React.ReactNode;
-  data: { data: D, state: S, runState?: INodeStateRun<I, O> };
+  data: { config: C, state: S, runState?: INodeStateRun<I, O> };
 }
 
 // 节点运行上下文 Partial方便更新部分数据
-export interface INodeContext<D extends INodeData, S extends INodeState, I extends INodeIO> {
-  data: D;
-  updateData: (data: Partial<D>) => void;
+export interface INodeContext<C extends INodeConfig, S extends INodeState, I extends INodeIO> {
+  config: C;
+  updateConfig: (config: Partial<C>) => void;
   state: S;
   updateState: (state: Partial<S>) => void;
   input: I;
 }
 
 // 节点类型抽象
-export interface INodeType<D extends INodeData, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+export interface INodeType<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
   id: string;
   name: string;
   description: string;
-  defaultData: D;
+  defaultConfig: C;
   defaultState: S;
-  ui: React.ComponentType<INodeProps<D, S, I, O>>;
-  run: (context: INodeContext<D, S, I>) => Promise<O>;
+  ui: React.ComponentType<INodeProps<C, S, I, O>>;
+  run: (context: INodeContext<C, S, I>) => Promise<O>;
 }
 
 // 节点抽象
 export interface INode {
   id: string;
-  type: INodeType<INodeData, INodeState, INodeIO, INodeIO>;
-  data: INodeData;
+  type: INodeType<INodeConfig, INodeState, INodeIO, INodeIO>;
+  config: INodeConfig;
   state: INodeState;
   runState: INodeStateRun<INodeIO, INodeIO>;
 }
@@ -100,7 +100,7 @@ interface IEdgeRun extends IEdge {
 }
 
 // 运行流
-export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeData: (nodeId: string, data: Partial<INodeData>) => void, updateNodeState: (nodeId: string, state: Partial<INodeState>) => void, updateNodeRunState: (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => void) {
+export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeConfig: (nodeId: string, config: Partial<INodeConfig>) => void, updateNodeState: (nodeId: string, state: Partial<INodeState>) => void, updateNodeRunState: (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => void) {
   // 节点列表
   const nodes = nodeList.reduce<Record<string, INodeRun>>((acc, node) => {
     acc[node.id] = {
@@ -153,9 +153,9 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeDa
         console.log('input', node.type.name, node.id, input);
         // 执行节点
         const output = await node.type.run({
-          data: node.data,
-          updateData: (data: Partial<INodeData>) => {
-            updateNodeData(node.id, data);
+          config: node.config,
+          updateConfig: (config: Partial<INodeConfig>) => {
+            updateNodeConfig(node.id, config);
           },
           state: node.state,
           updateState: (state: Partial<INodeState>) => {
@@ -196,22 +196,22 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeDa
 
 
 // 节点 UI 上下文
-interface IUseNodeUIContext<D extends INodeData, S extends INodeState, I extends INodeIO, O extends INodeIO> {
-  data: D;
+interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+  config: C;
   customState: S;
   runState: INodeStateRun<I, O>;
-  setData: (newData: Partial<D>) => void;
+  setConfig: (newConfig: Partial<C>) => void;
   setState: (newState: Partial<S>) => void;
 }
 
 // 节点 UI 上下文 Helper 函数
-export function useNodeUIContext<D extends INodeData, S extends INodeState, I extends INodeIO, O extends INodeIO>(
-  props: INodeProps<D, S, I, O>
-): IUseNodeUIContext<D, S, I, O> {
+export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
+  props: INodeProps<C, S, I, O>
+): IUseNodeUIContext<C, S, I, O> {
   const { updateNodeData } = useReactFlow();
 
-  const setData = useCallback((data: Partial<D>) => {
-    updateNodeData(props.id, { ...props.data, data: { ...props.data.data, ...data } });
+  const setConfig = useCallback((config: Partial<C>) => {
+    updateNodeData(props.id, { ...props.data, config: { ...props.data.config, ...config } });
   }, [props.id, props.data, updateNodeData]);
 
   const setState = useCallback((state: Partial<S>) => {
@@ -219,10 +219,10 @@ export function useNodeUIContext<D extends INodeData, S extends INodeState, I ex
   }, [props.id, props.data, updateNodeData]);
 
   return {
-    data: props.data.data,
+    config: props.data.config,
     customState: props.data.state as S, // 明确类型
     runState: props.data.runState as INodeStateRun<I, O>,
-    setData,
+    setConfig,
     setState,
   };
 }

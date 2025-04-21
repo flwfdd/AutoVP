@@ -23,7 +23,7 @@ import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { IEdge, INodeData, INodeIO, INodeState, INodeStateRun, INodeType, runFlow } from '@/lib/flow/flow';
+import { IEdge, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, runFlow } from '@/lib/flow/flow';
 import { toast } from 'sonner';
 // 注册节点类型
 const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType];
@@ -76,7 +76,7 @@ function Flow() {
         type: type,
         position,
         data: {
-          data: nodeTypeMap[type].defaultData,
+          config: nodeTypeMap[type].defaultConfig,
           state: nodeTypeMap[type].defaultState,
         },
       };
@@ -96,7 +96,7 @@ function Flow() {
   const toINode = (node: Node) => ({
     id: node.id,
     type: nodeTypeMap[node.type as string],
-    data: node.data.data as INodeData,
+    config: node.data.config as INodeConfig,
     state: node.data.state as INodeState,
     runState: node.data.runState as INodeStateRun<INodeIO, INodeIO>,
   });

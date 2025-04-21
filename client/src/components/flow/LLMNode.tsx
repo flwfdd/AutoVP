@@ -1,4 +1,4 @@
-import { INodeContext, INodeData, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
 
@@ -25,18 +25,18 @@ interface ILLMNodeInput extends INodeIO {
 interface ILLMNodeOutput extends INodeIO {
   [key: string]: any
 }
-interface ILLMNodeData extends INodeData {
+interface ILLMNodeConfig extends INodeConfig {
 }
 interface ILLMNodeState extends INodeState { }
 
-export const LLMNodeType: INodeType<ILLMNodeData, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput> = {
+export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput> = {
   id: 'llm',
   name: 'LLM',
   description: 'LLM node runs Large Language Models.',
-  defaultData: {},
+  defaultConfig: { name: 'New LLM' },
   defaultState: {},
   ui: LLMNodeUI,
-  async run(context: INodeContext<ILLMNodeData, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
+  async run(context: INodeContext<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
     // const response = await openai.chat.completions.create({
     //   model: '',
     //   messages: [
@@ -49,12 +49,11 @@ export const LLMNodeType: INodeType<ILLMNodeData, ILLMNodeState, ILLMNodeInput, 
   }
 };
 
-function LLMNodeUI(props: INodeProps<ILLMNodeData, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput>) {
+function LLMNodeUI(props: INodeProps<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput>) {
   return (
     <BaseNode
       {...props}
-      title="LLM"
-      description="LLM node runs Large Language Models."
+      nodeType={LLMNodeType}
       handles={[
         {
           id: 'prompt',
