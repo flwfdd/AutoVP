@@ -12,6 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
+import { Moon, Sun, SunMoon } from "lucide-react";
 import { useCallback, useRef } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -46,7 +47,7 @@ function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, updateNodeData, fitView } = useReactFlow();
-  const { isDarkMode } = useTheme();
+  const { setTheme, theme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 连接边
@@ -143,9 +144,10 @@ function Flow() {
   const run = useCallback(() => {
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config });
-    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state });
-    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState });
+    // 使用副本更新防止错乱
+    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config: { ...config } });
+    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state: { ...state } });
+    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState: { ...runState } });
 
     runFlow(iNodes, iEdges, updateConfig, updateState, updateRunState)
       .then(() => {
@@ -225,8 +227,13 @@ function Flow() {
         accept=".json"
         onChange={handleFileChange}
       />
-      <div className="w-96 h-auto p-4 box-border shadow-medium rounded-r-lg">
-        <div className="text-xl font-bold my-2">Auto Vis Code</div>
+      <div className="w-96 h-auto p-4 box-border shadow-medium rounded-r-lg flex flex-col">
+        <div className="flex justify-between items-center mb-2">
+          <div className="text-xl font-bold">Auto Vis Code</div>
+          <Button variant="outline" size="icon" onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")}>
+            {theme === "light" ? <Sun /> : theme === "dark" ? <Moon /> : <SunMoon />}
+          </Button>
+        </div>
         <div className='space-y-2'>
           <Button className="w-full" onClick={run}>
             Run
@@ -250,7 +257,7 @@ function Flow() {
             </Button>
           ))}
         </div>
-
+        <div className="mt-auto"></div>
       </div>
       <ReactFlow
         nodes={nodes}
@@ -261,7 +268,6 @@ function Flow() {
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        colorMode={isDarkMode ? 'dark' : 'light'}
       >
         <Controls />
         <MiniMap />

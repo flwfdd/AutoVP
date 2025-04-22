@@ -1,7 +1,6 @@
 import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
-
 // 初始化OpenAI
 // const openai = new OpenAI({
 //   baseURL: '',
@@ -38,7 +37,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
   ui: LLMNodeUI,
   async run(context: INodeContext<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
     // const response = await openai.chat.completions.create({
-    //   model: '',
+    //   model: 'gpt-4.1-nano',
     //   messages: [
     //     { role: 'system', content: 'You are a helpful assistant.' },
     //     { role: 'user', content: context.input.prompt },

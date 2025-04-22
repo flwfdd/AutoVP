@@ -130,7 +130,8 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
 
   // 重制所有节点状态
   Object.values(nodes).forEach((node) => {
-    updateNodeRunState(node.id, defaultNodeRunState);
+    node.runState = defaultNodeRunState;
+    updateNodeRunState(node.id, node.runState);
   });
 
   // 当前序结果都就绪后加入可执行节点列表
@@ -151,7 +152,7 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         }, {});
         node.runState.input = input;
         updateNodeRunState(node.id, node.runState);
-        console.log('input', node.type.name, node.id, input);
+        console.log('input', node.config.name, node.id, input);
         // 执行节点
         const output = await node.type.run({
           config: node.config,
@@ -177,12 +178,12 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         // 设置节点状态为成功
         node.runState.status = 'success';
         node.runState.output = output;
-        console.log('output', node.type.name, node.id, output);
+        console.log('output', node.config.name, node.id, output);
       } catch (e: any) {
         // 设置节点状态为失败
         node.runState.status = 'error';
         node.runState.error = e;
-        console.error('error', node.type.name, node.id, e);
+        console.error('error', node.config.name, node.id, e);
       } finally {
         updateNodeRunState(node.id, node.runState);
         // 如果节点运行失败，则抛出错误

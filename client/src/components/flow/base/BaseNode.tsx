@@ -38,10 +38,10 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
             <div className='text font-medium'>{data.config.name}</div>
           </div>
           <div className='flex items-center space-x-1'>
-            {data.runState?.status === 'idle' && <Hourglass className="h-4 w-4" />}
-            {data.runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin" />}
-            {data.runState?.status === 'success' && <CircleCheckBig className="h-4 w-4" />}
-            {data.runState?.status === 'error' && <CircleAlert className="h-4 w-4" />}
+            {data.runState?.status === 'idle' && <Hourglass className="h-4 w-4 text-gray-600" />}
+            {data.runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
+            {data.runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}
+            {data.runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
           </div>
         </CardHeader>
         <Separator />
