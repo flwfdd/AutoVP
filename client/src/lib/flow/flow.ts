@@ -1,5 +1,6 @@
 import { NodeProps, Position, useReactFlow } from "@xyflow/react";
 import { useCallback } from "react";
+import { z } from 'zod';
 
 // 节点输入输出基础类型
 export interface INodeIO {
@@ -7,10 +8,10 @@ export interface INodeIO {
 }
 
 // 节点持久化数据抽象
-export interface INodeConfig {
-  name: string;
-  [key: string]: any;
-}
+const NodeConfigSchema = z.object({
+  name: z.string(),
+}).catchall(z.any());
+export type INodeConfig = z.infer<typeof NodeConfigSchema>;
 
 // 节点非持久化状态抽象
 export interface INodeState {
@@ -23,6 +24,12 @@ export interface INodeStateRun<I extends INodeIO, O extends INodeIO> {
   output: O;
   status: 'idle' | 'running' | 'success' | 'error';
   error?: any;
+}
+const defaultNodeRunState: INodeStateRun<INodeIO, INodeIO> = {
+  status: 'idle',
+  input: {},
+  output: {},
+  error: null,
 }
 
 // 连接点配置
@@ -123,13 +130,7 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
 
   // 重制所有节点状态
   Object.values(nodes).forEach((node) => {
-    node.runState = {
-      status: 'idle',
-      input: {},
-      output: {},
-      error: null,
-    }
-    updateNodeRunState(node.id, node.runState);
+    updateNodeRunState(node.id, defaultNodeRunState);
   });
 
   // 当前序结果都就绪后加入可执行节点列表
@@ -194,6 +195,131 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
   }
 }
 
+// 位置抽象
+const PositionSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+// 节点 DSL Schema
+const NodeDSLSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  position: PositionSchema.default({ x: 0, y: 0 }),
+  config: NodeConfigSchema,
+});
+
+// 连接点 DSL Schema
+const HandleDSLSchema = z.object({
+  node: z.string(),
+  key: z.string(),
+});
+
+// 边 DSL Schema
+const EdgeDSLSchema = z.object({
+  id: z.string(),
+  source: HandleDSLSchema,
+  target: HandleDSLSchema,
+});
+
+// 导出流 DSL Schema
+export const FlowDSLSchema = z.object({
+  nodes: NodeDSLSchema.array(),
+  edges: EdgeDSLSchema.array(),
+});
+export type IFlowDSL = z.infer<typeof FlowDSLSchema>;
+
+export interface INodeWithPosition extends INode {
+  position: { x: number, y: number };
+}
+
+// 导出流
+export function dumpFlow(
+  nodeList: INodeWithPosition[],
+  edgeList: IEdge[]
+): IFlowDSL {
+  return {
+    nodes: nodeList.map((node) => ({
+      id: node.id,
+      type: node.type.id,
+      position: node.position,
+      config: node.config,
+      state: node.state,
+    })),
+    edges: edgeList.map((edge) => ({
+      id: edge.id,
+      source: {
+        node: edge.source.node.id,
+        key: edge.source.key,
+      },
+      target: {
+        node: edge.target.node.id,
+        key: edge.target.key,
+      },
+    })),
+  }
+}
+
+// 节点类型映射
+type NodeTypeMap = Record<string, INodeType<any, any, any, any>>;
+
+// 从DSL加载流
+export function loadFlow(
+  unvalidatedDsl: unknown,
+  nodeTypeMap: NodeTypeMap
+): { nodes: INodeWithPosition[], edges: IEdge[] } {
+  let dsl: IFlowDSL;
+  try {
+    // 解析和验证格式
+    dsl = FlowDSLSchema.parse(unvalidatedDsl);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Flow DSL validation failed:", error.errors);
+      throw new Error(`Invalid flow file format: ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+    } else {
+      throw error;
+    }
+  }
+
+  const nodes = dsl.nodes.map((nodeDSL) => {
+    const nodeType = nodeTypeMap[nodeDSL.type];
+    if (!nodeType) {
+      throw new Error(`Unknown node type "${nodeDSL.type}".`);
+    }
+
+    const newNode: INodeWithPosition = {
+      id: nodeDSL.id,
+      type: nodeType,
+      position: nodeDSL.position,
+      config: { ...nodeType.defaultConfig, ...(nodeDSL.config ?? {}) },
+      state: nodeType.defaultState,
+      runState: defaultNodeRunState,
+    };
+    return newNode;
+  });
+
+  const edges = dsl.edges.map((edgeDSL) => {
+    const sourceNode = nodes.find(n => n.id === edgeDSL.source.node);
+    const targetNode = nodes.find(n => n.id === edgeDSL.target.node);
+    if (!sourceNode || !targetNode) {
+      throw new Error(`Edge "${edgeDSL.id}" connects to non-existent node(s).`);
+    }
+    const newEdge: IEdge = {
+      id: edgeDSL.id,
+      source: {
+        node: sourceNode,
+        key: edgeDSL.source.key,
+      },
+      target: {
+        node: targetNode,
+        key: edgeDSL.target.key,
+      },
+    };
+    return newEdge;
+  });
+
+  return { nodes, edges };
+}
 
 // 节点 UI 上下文
 interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {

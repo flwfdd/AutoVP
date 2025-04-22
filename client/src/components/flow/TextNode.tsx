@@ -1,9 +1,8 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
-import { Position, useReactFlow } from '@xyflow/react';
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import BaseNode from './base/BaseNode';
-
 interface ITextNodeInput extends INodeIO { }
 interface ITextNodeOutput extends INodeIO {
   text: string;
@@ -26,12 +25,10 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
 };
 
 function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
-  const [text, setText] = React.useState('');
-  const { updateNodeData } = useReactFlow();
+  const { config, setConfig } = useNodeUIContext(props);
   const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setText(evt.target.value);
-    updateNodeData(props.id, { config: { text: evt.target.value } });
-  }, [props.id, updateNodeData]);
+    setConfig({ text: evt.target.value });
+  }, [setConfig]);
 
   return (
     <BaseNode
@@ -47,7 +44,7 @@ function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNode
     >
       <Textarea
         placeholder="Enter text"
-        value={text}
+        value={config.text}
         onChange={onChange}
         className='nowheel nodrag'
       />
