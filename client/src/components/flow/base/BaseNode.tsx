@@ -30,7 +30,7 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" className='flex-shrink-0 flex items-center space-x-1 size-8 p-1'>
+        <Button variant="ghost" size="icon" className='flex-shrink-0 flex items-center space-x-1 p-1'>
           {!runState || runState?.status === 'idle' && <Hourglass className="h-4 w-4 text-gray-600" />}
           {runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
           {runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}
@@ -104,7 +104,7 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
                 <Badge variant="secondary">{nodeType.name}</Badge>
               </TooltipTrigger>
               <TooltipContent>
-                <p className='max-w-xs'>{nodeType.description || `${nodeType.name} node`}</p>
+                <p className='max-w-xs whitespace-pre-wrap'>{nodeType.description || `${nodeType.name} node`}</p>
               </TooltipContent>
             </Tooltip>
             <div className='text font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{data.config.name}</div>

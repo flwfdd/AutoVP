@@ -26,7 +26,7 @@ interface IJavaScriptNodeState extends INodeState { }
 export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
   id: 'javascript',
   name: 'JavaScript',
-  description: 'JavaScript node runs JavaScript code in an async function. You can use the input parameters as variables in your code. The value returned will be the output.',
+  description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', code: '', params: [] },
   defaultState: {},
   ui: JavaScriptNodeUI,
@@ -106,11 +106,6 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
           type: 'target' as const,
           position: Position.Left,
           limit: 1,
-          // // 输入参数值变化时回调
-          // onChange: (value: any) => {
-          //   params[index].value = value;
-          //   setParams(params);
-          // },
           label: <ParamLabel
             id={param.id}
             name={param.name}

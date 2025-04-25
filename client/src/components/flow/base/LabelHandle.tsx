@@ -12,21 +12,12 @@ const flexDirections = {
 interface LabelHandleProps extends HandleProps {
   label?: React.ReactNode; // 显示标签
   limit?: number; // 最大连接数
-  // onChange?: (output: any) => void; // 数据更新回调 用于实时同步上下游数据
 }
 
 
 const LabelHandle = (props: LabelHandleProps) => {
   const [id] = useState(props.id ? props.id : generateId());
-  const connections = useNodeConnections({ handleId: id, handleType: props.type });
-
-  // // 当上游数据更新时通知下游
-  // const sourceNodeData = useNodesData(connections[0]?.source) as { data: { output: { [key: string]: any } } } | null;
-  // useEffect(() => {
-  //   if (props.onChange && sourceNodeData?.data.output && connections[0].sourceHandle) {
-  //     props.onChange(sourceNodeData.data.output[connections[0].sourceHandle]);
-  //   }
-  // }, [sourceNodeData]);
+  const connections = useNodeConnections({ handleId: id, handleType: props.type })
 
   const handle = (<Handle
     {...props}

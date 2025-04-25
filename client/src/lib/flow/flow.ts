@@ -192,6 +192,10 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         }
         // 将输出写入边
         node.outputEdges.forEach((edge) => {
+          // 输出为undefined表示不走这条边
+          if (output[edge.source.key] === undefined) {
+            return;
+          }
           edges[edge.id].value = output[edge.source.key];
           // 更新目标节点等待数
           const targetNode = nodes[edge.target.node.id];

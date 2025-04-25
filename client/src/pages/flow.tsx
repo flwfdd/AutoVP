@@ -17,6 +17,7 @@ import { useCallback, useRef } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
+import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
@@ -28,7 +29,7 @@ import { defaultNodeRunState, dumpFlow, IEdge, IFlowDSL, INodeConfig, INodeIO, I
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 // 注册节点类型
-const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType];
+const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
 const nodeTypeMap = nodeTypeList.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
   acc[nodeType.id] = nodeType;
   return acc;

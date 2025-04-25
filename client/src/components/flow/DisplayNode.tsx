@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
 
@@ -24,6 +24,7 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
 };
 
 function DisplayNodeUI(props: INodeProps<IDisplayNodeConfig, IDisplayNodeState, IDisplayNodeInput, IDisplayNodeOutput>) {
+  const { runState } = useNodeUIContext(props);
   return (
     <BaseNode
       {...props}
@@ -39,7 +40,7 @@ function DisplayNodeUI(props: INodeProps<IDisplayNodeConfig, IDisplayNodeState, 
     >
       <Textarea
         placeholder="Empty"
-        value={props.data.runState?.input.text}
+        value={runState.input.text ?? ''}
         readOnly
         className='nowheel nodrag'
       />
