@@ -14,8 +14,8 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
   name: 'Display',
   description: 'Display node displays the output.',
   defaultConfig: {
-    name: 'New DisplayDisplay node displays the output.Display node displays the output.Display node displays the output.Display node displays the output.',
-    description: 'description description description description description description description description description',
+    name: 'New Display',
+    description: '',
   },
   defaultState: {},
   ui: DisplayNodeUI,

@@ -147,9 +147,9 @@ function Flow() {
   const run = useCallback(() => {
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config });
-    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state });
-    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState });
+    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config: structuredClone(config) });
+    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state: structuredClone(state) });
+    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
 
     runFlow(iNodes, iEdges, updateConfig, updateState, updateRunState)
       .then(() => {

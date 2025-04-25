@@ -16,21 +16,38 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INodeConfig, INodeIO, INodeProps, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { INodeConfig, INodeIO, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import LabelHandle from './LabelHandle';
 
-interface RunStateDialogButtonProps<C extends INodeConfig, I extends INodeIO, O extends INodeIO> {
-  nodeType: INodeType<any, any, any, any>;
+interface RunStateDialogButtonProps<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+  nodeType: INodeType<C, S, I, O>;
   config: C;
+  state: S;
   runState: INodeStateRun<I, O> | undefined;
 }
 
-function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extends INodeIO>(
-  { nodeType, config, runState }: RunStateDialogButtonProps<C, I, O>
+function RunStateDialogButton<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
+  { nodeType, config, state, runState }: RunStateDialogButtonProps<C, S, I, O>
 ) {
+  const logFormatter = useMemo(() => nodeType.logFormatter || ((_config: C, _state: S, log: INodeRunLog<I, O>) => {
+    return {
+      input: JSON.stringify(log.input, null, 2),
+      output: JSON.stringify(log.output, null, 2),
+    };
+  }), [nodeType.logFormatter]);
+
+  const formattedLogs = useMemo(() => runState?.logs.map((log) => {
+    const formattedLog = logFormatter(config, state, log);
+    return {
+      ...log,
+      input: formattedLog.input,
+      output: formattedLog.output,
+    };
+  }), [runState?.logs, logFormatter, config, state]);
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -52,8 +69,8 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          {runState && runState.log.length ?
-            runState.log.map((log, index) => (
+          {formattedLogs && formattedLogs.length ?
+            formattedLogs.map((log, index) => (
               <div key={index} className="flex flex-col gap-2 bg-muted p-2 rounded-md">
                 <div className="flex gap-2 justify-between">
                   <Badge variant="outline" className="text-xs text-center border-green-600 bg-green-600/10">
@@ -70,8 +87,8 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
                   </Badge>
                 </div>
                 <div className="flex gap-4">
-                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{JSON.stringify(log.input, null, 2)}</pre>
-                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{JSON.stringify(log.output, null, 2)}</pre>
+                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.input}</pre>
+                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.output}</pre>
                 </div>
               </div>
             ))
@@ -167,7 +184,7 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
   const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
-  const { config, runState, setConfig } = useNodeUIContext(props);
+  const { config, state, runState, setConfig } = useNodeUIContext(props);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -213,6 +230,7 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
             <RunStateDialogButton
               nodeType={nodeType}
               config={config}
+              state={state}
               runState={runState}
             />
           </div>

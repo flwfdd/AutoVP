@@ -20,11 +20,11 @@ export interface INodeState {
 }
 
 // 节点运行记录
-interface INodeRunLog {
+export interface INodeRunLog<I extends INodeIO, O extends INodeIO> {
   startMs: number;
   endMs?: number;
-  input: INodeIO;
-  output?: INodeIO;
+  input: I;
+  output?: O;
 }
 
 // 节点运行时状态抽象
@@ -33,14 +33,14 @@ export interface INodeStateRun<I extends INodeIO, O extends INodeIO> {
   output: O;
   status: 'idle' | 'running' | 'success' | 'error';
   error?: any;
-  log: INodeRunLog[];
+  logs: INodeRunLog<I, O>[];
 }
 export const defaultNodeRunState: INodeStateRun<INodeIO, INodeIO> = {
   status: 'idle',
   input: {},
   output: {},
   error: null,
-  log: [],
+  logs: [],
 }
 
 // 连接点配置
@@ -62,14 +62,17 @@ export interface INodeProps<C extends INodeConfig, S extends INodeState, I exten
   data: { config: C, state: S, runState?: INodeStateRun<I, O> };
 }
 
-// 节点运行上下文 Partial方便更新部分数据
+// 节点运行上下文
 export interface INodeContext<C extends INodeConfig, S extends INodeState, I extends INodeIO> {
   config: C;
-  updateConfig: (config: Partial<C>) => void;
+  updateConfig: (config: C) => void;
   state: S;
-  updateState: (state: Partial<S>) => void;
+  updateState: (state: S) => void;
   input: I;
 }
+
+// 节点运行日志格式化
+export type INodeLogFormatter<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> = (config: C, state: S, log: INodeRunLog<I, O>) => { input: string, output: string };
 
 // 节点类型抽象
 export interface INodeType<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
@@ -78,6 +81,7 @@ export interface INodeType<C extends INodeConfig, S extends INodeState, I extend
   description: string;
   defaultConfig: C;
   defaultState: S;
+  logFormatter?: INodeLogFormatter<C, S, I, O>;
   ui: React.ComponentType<INodeProps<C, S, I, O>>;
   run: (context: INodeContext<C, S, I>) => Promise<O>;
 }
@@ -165,7 +169,7 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         node.runState.input = input;
         // 运行前callback
         console.log('input', node.config.name, node.id, input);
-        node.runState.log.push({
+        node.runState.logs.push({
           startMs: Date.now() - startTime,
           input,
         });
@@ -185,11 +189,11 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         });
         // 运行后callback
         console.log('output', node.config.name, node.id, output);
-        let log = node.runState.log.pop();
+        let log = node.runState.logs.pop();
         if (log) {
           log.endMs = Date.now() - startTime;
           log.output = output;
-          node.runState.log.push(log);
+          node.runState.logs.push(log);
         }
         // 将输出写入边
         node.outputEdges.forEach((edge) => {
@@ -354,7 +358,7 @@ export function loadFlow(
 // 节点 UI 上下文
 interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
   config: C;
-  customState: S;
+  state: S;
   runState: INodeStateRun<I, O>;
   setConfig: (newConfig: Partial<C>) => void;
   setState: (newState: Partial<S>) => void;
@@ -376,7 +380,7 @@ export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I 
 
   return {
     config: props.data.config,
-    customState: props.data.state as S, // 明确类型
+    state: props.data.state as S, // 明确类型
     runState: props.data.runState as INodeStateRun<I, O>,
     setConfig,
     setState,

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
@@ -29,6 +29,17 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
   defaultState: {},
+  logFormatter: ((config: IJavaScriptNodeConfig, _state: INodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
+    return {
+      ...log,
+      // 将input的key转换为param的name
+      input: JSON.stringify(Object.entries(log.input).reduce<Record<string, string>>((acc, [key, value]) => {
+        acc[config.params?.find(param => param.id === key)?.name || key] = value;
+        return acc;
+      }, {}), null, 2),
+      output: JSON.stringify(log.output?.output, null, 2),
+    };
+  }),
   ui: JavaScriptNodeUI,
   async run(context: INodeContext<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
     const params = context.config.params.reduce<Record<string, any>>((acc, param) => {
