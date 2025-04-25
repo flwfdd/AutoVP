@@ -24,7 +24,8 @@ import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { dumpFlow, IEdge, IFlowDSL, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadFlow, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpFlow, IEdge, IFlowDSL, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadFlow, runFlow } from '@/lib/flow/flow';
+import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 // 注册节点类型
 const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType];
@@ -47,7 +48,7 @@ function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, updateNodeData, fitView } = useReactFlow();
-  const { setTheme, theme } = useTheme();
+  const { isDarkMode, setTheme, theme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 连接边
@@ -71,7 +72,7 @@ function Flow() {
         y: event.clientY,
       });
       // 生成节点ID
-      const id = String(Math.random());
+      const id = generateId();
       // 创建节点
       const newNode = {
         id: id,
@@ -80,6 +81,7 @@ function Flow() {
         data: {
           config: nodeTypeMap[type].defaultConfig,
           state: nodeTypeMap[type].defaultState,
+          runState: defaultNodeRunState,
         },
       };
       // 添加节点
@@ -144,10 +146,9 @@ function Flow() {
   const run = useCallback(() => {
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    // 使用副本更新防止错乱
-    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config: { ...config } });
-    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state: { ...state } });
-    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState: { ...runState } });
+    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config });
+    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state });
+    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState });
 
     runFlow(iNodes, iEdges, updateConfig, updateState, updateRunState)
       .then(() => {
@@ -268,6 +269,7 @@ function Flow() {
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        colorMode={isDarkMode ? 'dark' : 'light'}
       >
         <Controls />
         <MiniMap />

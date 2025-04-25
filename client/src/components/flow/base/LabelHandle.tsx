@@ -1,3 +1,4 @@
+import { generateId } from '@/lib/utils';
 import { Handle, HandleProps, useNodeConnections } from '@xyflow/react';
 import { useState } from 'react';
 
@@ -16,7 +17,7 @@ interface LabelHandleProps extends HandleProps {
 
 
 const LabelHandle = (props: LabelHandleProps) => {
-  const [id] = useState(props.id ? props.id : String(Math.random()));
+  const [id] = useState(props.id ? props.id : generateId());
   const connections = useNodeConnections({ handleId: id, handleType: props.type });
 
   // // 当上游数据更新时通知下游

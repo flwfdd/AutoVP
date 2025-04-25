@@ -1,12 +1,12 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import { WorkerOutput } from "./js-runner.worker";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Run code in a web worker
+// 在web worker中执行js代码
 export async function workerEval(code: string, params: Record<string, any>) {
   const worker = new Worker(new URL('./js-runner.worker.ts', import.meta.url), {
     type: 'module'
@@ -15,7 +15,6 @@ export async function workerEval(code: string, params: Record<string, any>) {
   return new Promise((resolve, reject) => {
     worker.postMessage({ code, params });
 
-    // Handle messages from the worker
     worker.onmessage = (event: MessageEvent<WorkerOutput>) => {
       const message = event.data;
       if (message.type === 'result') {
@@ -26,10 +25,14 @@ export async function workerEval(code: string, params: Record<string, any>) {
       worker.terminate();
     };
 
-    // Handle errors originating from the worker itself
     worker.onerror = (error) => {
       reject(error);
       worker.terminate();
     };
   });
+}
+
+// 生成随机id
+export function generateId() {
+  return Math.random().toString(36).substring(2);
 }

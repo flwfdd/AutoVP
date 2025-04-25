@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
-import { workerEval } from '@/lib/utils';
+import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
 } from '@xyflow/react';
@@ -80,7 +80,7 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
 
   // 添加输入参数 id作为输入map的key不会变
   const onAddParam = useCallback(() => {
-    const newParams = [...config.params, { id: String(Math.random()), name: '' }];
+    const newParams = [...config.params, { id: generateId(), name: '' }];
     setConfig({ params: newParams });
   }, [config, setConfig]);
 

@@ -18,18 +18,28 @@ export interface INodeState {
   [key: string]: any;
 }
 
+// 节点运行记录
+interface INodeRunLog {
+  startMs: number;
+  endMs?: number;
+  input: INodeIO;
+  output?: INodeIO;
+}
+
 // 节点运行时状态抽象
 export interface INodeStateRun<I extends INodeIO, O extends INodeIO> {
   input: I;
   output: O;
   status: 'idle' | 'running' | 'success' | 'error';
   error?: any;
+  log: INodeRunLog[];
 }
-const defaultNodeRunState: INodeStateRun<INodeIO, INodeIO> = {
+export const defaultNodeRunState: INodeStateRun<INodeIO, INodeIO> = {
   status: 'idle',
   input: {},
   output: {},
   error: null,
+  log: [],
 }
 
 // 连接点配置
@@ -128,13 +138,14 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
     return acc;
   }, {});
 
-  // 重制所有节点状态
+  // 重置所有节点状态
   Object.values(nodes).forEach((node) => {
-    node.runState = defaultNodeRunState;
+    node.runState = structuredClone(defaultNodeRunState);
     updateNodeRunState(node.id, node.runState);
   });
 
-  // 当前序结果都就绪后加入可执行节点列表
+  // 初始化可执行节点列表为入度为0的节点
+  const startTime = Date.now();
   let readyNodes = Object.values(nodes).filter((node) => node.inputEdges.length === 0);
   while (1) {
     if (readyNodes.length === 0) {
@@ -151,8 +162,14 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
           return acc;
         }, {});
         node.runState.input = input;
-        updateNodeRunState(node.id, node.runState);
+        // 运行前callback
         console.log('input', node.config.name, node.id, input);
+        node.runState.log.push({
+          startMs: Date.now() - startTime,
+          input,
+        });
+        // 更新节点状态
+        updateNodeRunState(node.id, node.runState);
         // 执行节点
         const output = await node.type.run({
           config: node.config,
@@ -165,6 +182,14 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
           },
           input,
         });
+        // 运行后callback
+        console.log('output', node.config.name, node.id, output);
+        let log = node.runState.log.pop();
+        if (log) {
+          log.endMs = Date.now() - startTime;
+          log.output = output;
+          node.runState.log.push(log);
+        }
         // 将输出写入边
         node.outputEdges.forEach((edge) => {
           edges[edge.id].value = output[edge.source.key];
@@ -178,7 +203,6 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         // 设置节点状态为成功
         node.runState.status = 'success';
         node.runState.output = output;
-        console.log('output', node.config.name, node.id, output);
       } catch (e: any) {
         // 设置节点状态为失败
         node.runState.status = 'error';
