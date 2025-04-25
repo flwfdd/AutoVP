@@ -32,7 +32,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
   id: 'llm',
   name: 'LLM',
   description: 'LLM node runs Large Language Models.',
-  defaultConfig: { name: 'New LLM' },
+  defaultConfig: { name: 'New LLM', description: '' },
   defaultState: {},
   ui: LLMNodeUI,
   async run(context: INodeContext<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {

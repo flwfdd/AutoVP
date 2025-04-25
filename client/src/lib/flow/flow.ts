@@ -10,6 +10,7 @@ export interface INodeIO {
 // 节点持久化数据抽象
 const NodeConfigSchema = z.object({
   name: z.string(),
+  description: z.string(),
 }).catchall(z.any());
 export type INodeConfig = z.infer<typeof NodeConfigSchema>;
 

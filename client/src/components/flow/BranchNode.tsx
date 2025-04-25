@@ -27,7 +27,7 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
   id: 'branch',
   name: 'Branch',
   description: 'Branch node outputs based on the condition.\nCondition code example for branches A & B:\n1. `return a`: send input to A\n2. `return [a, b]`: send input to A & B\n3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',
-  defaultConfig: { name: 'New Branch', code: '', branches: [] },
+  defaultConfig: { name: 'New Branch', description: '', code: '', branches: [] },
   defaultState: {},
   ui: BranchNodeUI,
   async run(context: INodeContext<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput>): Promise<IBranchNodeOutput> {

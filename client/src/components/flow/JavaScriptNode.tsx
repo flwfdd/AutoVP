@@ -27,7 +27,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   id: 'javascript',
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
-  defaultConfig: { name: 'New JavaScript', code: '', params: [] },
+  defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
   defaultState: {},
   ui: JavaScriptNodeUI,
   async run(context: INodeContext<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {

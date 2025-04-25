@@ -3,35 +3,39 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INodeConfig, INodeIO, INodeProps, INodeState, INodeStateRun, INodeType } from '@/lib/flow/flow';
+import { INodeConfig, INodeIO, INodeProps, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
-import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import LabelHandle from './LabelHandle';
 
 interface RunStateDialogButtonProps<C extends INodeConfig, I extends INodeIO, O extends INodeIO> {
   nodeType: INodeType<any, any, any, any>;
-  nodeId: string;
   config: C;
   runState: INodeStateRun<I, O> | undefined;
 }
 
 function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extends INodeIO>(
-  { nodeType, nodeId, config, runState }: RunStateDialogButtonProps<C, I, O>
+  { nodeType, config, runState }: RunStateDialogButtonProps<C, I, O>
 ) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className='flex-shrink-0 flex items-center space-x-1 p-1'>
-          {!runState || runState?.status === 'idle' && <Hourglass className="h-4 w-4 text-gray-600" />}
+        <Button variant="ghost" size="icon">
+          {!runState || runState?.status === 'idle' && <Hourglass className="h text-gray-600" />}
           {runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
           {runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}
           {runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
@@ -44,7 +48,7 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
             {config.name}
           </DialogTitle>
           <DialogDescription>
-            {nodeId}
+            {config.description}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -72,7 +76,7 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
               </div>
             ))
             : (
-              <p>No run state available yet.</p>
+              <p className="text-center text-muted-foreground">No run log yet.</p>
             )}
         </div>
       </DialogContent>
@@ -80,9 +84,90 @@ function RunStateDialogButton<C extends INodeConfig, I extends INodeIO, O extend
   );
 }
 
-function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>({ id, nodeType, handles = [], children, data }: INodeProps<C, S, I, O>) {
+interface EditNodeDialogProps<C extends INodeConfig> {
+  nodeType: INodeType<any, any, any, any>;
+  config: C;
+  setConfig: (newConfig: Partial<C>) => void;
+}
+
+function EditNodeDialog<C extends INodeConfig>(
+  { nodeType, config, setConfig }: EditNodeDialogProps<C>
+) {
+  const [name, setName] = useState(config.name);
+  const [description, setDescription] = useState(config.description || '');
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleSave = () => {
+    setConfig({ ...config, name, description });
+    setIsOpen(false);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(config.name);
+      setDescription(config.description || '');
+    }
+  }, [isOpen, config]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Pencil />
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
+            Edit Node: {config.name}
+          </DialogTitle>
+          <DialogDescription>
+            Update the node's display name and description here.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="description" className="text-right pt-1">
+              Description
+            </Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="col-span-3"
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">Cancel</Button>
+          </DialogClose>
+          <Button type="button" onClick={handleSave}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(props: INodeProps<C, S, I, O>) {
+  const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
+  const { config, runState, setConfig } = useNodeUIContext(props);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -97,8 +182,8 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
   return (
     <div>
       <Card className="focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60" tabIndex={-1}>
-        <CardHeader className='flex items-center justify-between p-2'>
-          <div className="flex items-center gap-2 min-w-0">
+        <CardHeader className="flex items-center justify-between p-2">
+          <div className="flex items-center gap-1 min-w-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge variant="secondary">{nodeType.name}</Badge>
@@ -107,14 +192,30 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
                 <p className='max-w-xs whitespace-pre-wrap'>{nodeType.description || `${nodeType.name} node`}</p>
               </TooltipContent>
             </Tooltip>
-            <div className='text font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{data.config.name}</div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className='text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{config.name}</span>
+              </TooltipTrigger>
+              {config.description && (
+                <TooltipContent>
+                  <p className='max-w-xs whitespace-pre-wrap'>{config.description}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
           </div>
-          <RunStateDialogButton
-            nodeType={nodeType}
-            nodeId={id}
-            config={data.config}
-            runState={data.runState}
-          />
+          <div className="flex items-center">
+            <EditNodeDialog
+              nodeType={nodeType}
+              config={config}
+              setConfig={setConfig}
+            />
+            <RunStateDialogButton
+              nodeType={nodeType}
+              config={config}
+              runState={runState}
+            />
+          </div>
         </CardHeader>
         <Separator />
         {handles

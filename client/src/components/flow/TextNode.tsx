@@ -16,7 +16,7 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
   id: 'text',
   name: 'Text',
   description: 'Text node provides a text source.',
-  defaultConfig: { name: 'New Text', text: '' },
+  defaultConfig: { name: 'New Text', description: '', text: '' },
   defaultState: {},
   ui: TextNodeUI,
   async run(context: INodeContext<ITextNodeConfig, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {
