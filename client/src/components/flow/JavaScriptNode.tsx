@@ -43,6 +43,9 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   ui: JavaScriptNodeUI,
   async run(context: INodeContext<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
     const params = context.config.params.reduce<Record<string, any>>((acc, param) => {
+      if (context.input[param.id] === undefined) {
+        throw new Error(`Input ${param.name} is undefined`);
+      }
       acc[param.name] = context.input[param.id];
       return acc;
     }, {});

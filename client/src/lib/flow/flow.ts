@@ -221,7 +221,7 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         updateNodeRunState(node.id, node.runState);
         // 如果节点运行失败，则抛出错误
         if (node.runState.status === 'error') {
-          throw new Error(`Error in ${node.type.name}(${node.id}): ${node.runState.error.message || node.runState.error}`);
+          throw new Error(`Error in ${node.config.name}: ${node.runState.error.message || node.runState.error}`);
         }
       }
     }

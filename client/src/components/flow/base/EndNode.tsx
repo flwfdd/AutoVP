@@ -4,7 +4,7 @@ import { Position } from '@xyflow/react';
 import BaseNode from './BaseNode';
 
 interface IEndNodeInput extends INodeIO {
-  text: string;
+  value: any;
 }
 interface IEndNodeOutput extends INodeIO { }
 interface IEndNodeConfig extends INodeConfig { }
@@ -32,7 +32,7 @@ function EndNodeUI(props: INodeProps<IEndNodeConfig, IEndNodeState, IEndNodeInpu
       nodeType={EndNodeType}
       handles={[
         {
-          id: 'text',
+          id: 'value',
           type: 'target',
           position: Position.Left,
         }
@@ -40,7 +40,7 @@ function EndNodeUI(props: INodeProps<IEndNodeConfig, IEndNodeState, IEndNodeInpu
     >
       <Textarea
         placeholder="Empty"
-        value={runState.input.text ?? ''}
+        value={JSON.stringify(runState.input.value, null, 2)}
         readOnly
         className='nowheel nodrag'
       />
