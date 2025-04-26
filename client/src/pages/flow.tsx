@@ -17,6 +17,8 @@ import { useCallback, useRef } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
+import { EndNodeType } from "@/components/flow/base/EndNode";
+import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
@@ -28,21 +30,45 @@ import { Separator } from '@/components/ui/separator';
 import { defaultNodeRunState, dumpFlow, IEdge, IFlowDSL, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadFlow, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
+
 // 注册节点类型
-const nodeTypeList = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
-const nodeTypeMap = nodeTypeList.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
+const allNodeTypes = [StartNodeType, EndNodeType, TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
+const nodeTypeMap = allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
   acc[nodeType.id] = nodeType;
   return acc;
 }, {});
 
 // 注册节点UI供ReactFlow使用
-const nodeTypeUIMap = nodeTypeList.reduce<Record<string, React.ComponentType<any>>>((acc, nodeType) => {
+const nodeTypeUIMap = allNodeTypes.reduce<Record<string, React.ComponentType<any>>>((acc, nodeType) => {
   acc[nodeType.id] = nodeType.ui;
   return acc;
 }, {});
 
 // 初始化节点和边
-const initialNodes: Node[] = [];
+const initialNodes: Node[] = [
+  {
+    id: 'start',
+    type: 'start',
+    position: { x: 0, y: 0 },
+    data: {
+      config: StartNodeType.defaultConfig,
+      state: StartNodeType.defaultState,
+      runState: defaultNodeRunState,
+    },
+    deletable: false,
+  },
+  {
+    id: 'end',
+    type: 'end',
+    position: { x: 400, y: 200 },
+    data: {
+      config: EndNodeType.defaultConfig,
+      state: EndNodeType.defaultState,
+      runState: defaultNodeRunState,
+    },
+    deletable: false,
+  },
+];
 const initialEdges: Edge[] = [];
 
 function Flow() {
@@ -248,16 +274,18 @@ function Flow() {
           </Button>
         </div>
         <Separator className="my-2" />
-        <div className="text-lg font-bold">Components</div>
+        <div className="text-lg font-bold">Nodes</div>
         <div className="text-sm text-gray-500">Drag and drop to add nodes</div>
         <Separator className="my-2" />
         <div className="space-y-2">
-          {nodeTypeList.map((nodeType) => (
-            <Button draggable className="w-full" key={nodeType.id}
-              onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
-              {nodeType.name}
-            </Button>
-          ))}
+          {allNodeTypes
+            .filter(nt => nt.id !== 'start' && nt.id !== 'end')
+            .map((nodeType) => (
+              <Button draggable className="w-full" key={nodeType.id}
+                onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
+                {nodeType.name}
+              </Button>
+            ))}
         </div>
         <div className="mt-auto"></div>
       </div>

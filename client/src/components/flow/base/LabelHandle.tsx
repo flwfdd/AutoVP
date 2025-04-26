@@ -1,6 +1,6 @@
 import { generateId } from '@/lib/utils';
 import { Handle, HandleProps, useNodeConnections } from '@xyflow/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const flexDirections = {
   top: "flex-col pt-2",
@@ -18,11 +18,12 @@ interface LabelHandleProps extends HandleProps {
 const LabelHandle = (props: LabelHandleProps) => {
   const [id] = useState(props.id ? props.id : generateId());
   const connections = useNodeConnections({ handleId: id, handleType: props.type })
+  const limit = useMemo(() => props.limit ? props.limit : props.type === 'target' ? 1 : 0, [props.limit, props.type])
 
   const handle = (<Handle
     {...props}
     id={id}
-    isConnectable={props.limit ? connections.length < props.limit : true}
+    isConnectable={limit ? connections.length < limit : true}
   />)
 
   return props.label ? (

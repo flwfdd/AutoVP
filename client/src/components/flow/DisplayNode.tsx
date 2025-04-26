@@ -35,7 +35,6 @@ function DisplayNodeUI(props: INodeProps<IDisplayNodeConfig, IDisplayNodeState, 
           id: 'text',
           type: 'target',
           position: Position.Left,
-          limit: 1,
         }
       ]}
     >

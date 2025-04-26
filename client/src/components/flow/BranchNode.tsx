@@ -135,7 +135,6 @@ function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBr
           id: 'input',
           type: 'target' as const,
           position: Position.Left,
-          limit: 1,
         },
         ...config.branches.map(branch => ({
           id: branch.id,

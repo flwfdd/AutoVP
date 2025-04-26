@@ -58,7 +58,7 @@ function RunStateDialogButton<C extends INodeConfig, S extends INodeState, I ext
           {runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="max-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
@@ -134,37 +134,34 @@ function EditNodeDialog<C extends INodeConfig>(
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
-            Edit Node: {config.name}
+            Edit Node Config
           </DialogTitle>
           <DialogDescription>
-            Update the node's display name and description here.
+            Type: {nodeType.name}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="name">
+              名称
             </Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
             />
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="description" className="text-right pt-1">
-              Description
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="description">
+              描述
             </Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
               rows={3}
             />
           </div>
@@ -175,8 +172,8 @@ function EditNodeDialog<C extends INodeConfig>(
           </DialogClose>
           <Button type="button" onClick={handleSave}>Save</Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </DialogContent >
+    </Dialog >
   );
 }
 

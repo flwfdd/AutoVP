@@ -58,7 +58,6 @@ function LLMNodeUI(props: INodeProps<ILLMNodeConfig, ILLMNodeState, ILLMNodeInpu
           id: 'prompt',
           type: 'target',
           position: Position.Left,
-          limit: 1,
         },
         {
           id: 'output',

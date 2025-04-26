@@ -116,7 +116,6 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
           id: param.id,
           type: 'target' as const,
           position: Position.Left,
-          limit: 1,
           label: <ParamLabel
             id={param.id}
             name={param.name}
