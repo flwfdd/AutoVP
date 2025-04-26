@@ -13,7 +13,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { Moon, Sun, SunMoon } from "lucide-react";
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -21,28 +21,20 @@ import { EndNodeType } from "@/components/flow/base/EndNode";
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
+import { newFlowNodeType } from '@/components/flow/FlowNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
 import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { defaultNodeRunState, dumpFlow, IEdge, IFlowDSL, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadFlow, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // 注册节点类型
-const allNodeTypes = [StartNodeType, EndNodeType, TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
-const nodeTypeMap = allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
-  acc[nodeType.id] = nodeType;
-  return acc;
-}, {});
-
-// 注册节点UI供ReactFlow使用
-const nodeTypeUIMap = allNodeTypes.reduce<Record<string, React.ComponentType<any>>>((acc, nodeType) => {
-  acc[nodeType.id] = nodeType.ui;
-  return acc;
-}, {});
+const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
+const specialNodeTypes = [StartNodeType, EndNodeType];
 
 // 初始化节点和边
 const initialNodes: Node[] = [
@@ -71,11 +63,33 @@ const initialNodes: Node[] = [
 ];
 const initialEdges: Edge[] = [];
 
+const initialFlowNodeTypes: IFlowNodeType[] = [];
+
 function Flow() {
+  // 注册节点类型
+  const [flowNodeTypes, setFlowNodeTypes] = useState(initialFlowNodeTypes);
+  const allNodeTypes = useMemo(() => [...basicNodeTypes, ...specialNodeTypes, ...flowNodeTypes], [flowNodeTypes]);
+  const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
+    acc[nodeType.id] = nodeType;
+    return acc;
+  }, {}), [allNodeTypes]);
+
+  // 注册节点UI供ReactFlow使用
+  const nodeTypeUIMap = useMemo(() => allNodeTypes.reduce<Record<string, React.ComponentType<any>>>((acc, nodeType) => {
+    acc[nodeType.id] = nodeType.ui;
+    return acc;
+  }, {}), [allNodeTypes]);
+
+
+  // ReactFlow
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, updateNodeData, fitView } = useReactFlow();
+
+  // 主题
   const { isDarkMode, setTheme, theme } = useTheme();
+
+  // 文件输入
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 连接边
@@ -114,14 +128,14 @@ function Flow() {
       // 添加节点
       setNodes((nds) => nds.concat(newNode));
     },
-    [screenToFlowPosition, setNodes]
+    [nodeTypeMap, screenToFlowPosition, setNodes]
   );
 
   // 拖拽节点时
-  const onDragOver = useCallback((event: any) => {
+  const onDragOver = (event: any) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-  }, []);
+  };
 
   // 将节点转换为运行时节点
   const toINode = useCallback((node: Node) => ({
@@ -130,7 +144,7 @@ function Flow() {
     config: node.data.config as INodeConfig,
     state: node.data.state as INodeState,
     runState: node.data.runState as INodeStateRun<INodeIO, INodeIO>,
-  }), []);
+  }), [nodeTypeMap]);
 
   // 将边转换为运行时边
   const toIEdge = useCallback((edge: Edge) => {
@@ -150,7 +164,7 @@ function Flow() {
     };
   }, [nodes, toINode]);
 
-  const fromIDSLNode = useCallback((node: INodeWithPosition): Node => ({
+  const fromIDSLNode = (node: INodeWithPosition): Node => ({
     id: node.id,
     type: node.type.id,
     position: node.position,
@@ -159,25 +173,25 @@ function Flow() {
       state: node.state,
       runState: node.runState,
     },
-  }), []);
+  });
 
-  const fromIDSLEdge = useCallback((edge: IEdge): Edge => ({
+  const fromIDSLEdge = (edge: IEdge): Edge => ({
     id: edge.id,
     source: edge.source.node.id,
     target: edge.target.node.id,
     sourceHandle: edge.source.key,
     targetHandle: edge.target.key,
-  }), []);
+  });
 
   // 运行流
-  const run = useCallback(() => {
+  const handleRun = useCallback(() => {
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const updateConfig = (nodeId: string, config: Partial<INodeConfig>) => updateNodeData(nodeId, { config: structuredClone(config) });
-    const updateState = (nodeId: string, state: Partial<INodeState>) => updateNodeData(nodeId, { state: structuredClone(state) });
-    const updateRunState = (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
+    const updateConfig = (nodeId: string, config: INodeConfig) => updateNodeData(nodeId, { config: structuredClone(config) });
+    const updateState = (nodeId: string, state: INodeState) => updateNodeData(nodeId, { state: structuredClone(state) });
+    const updateRunState = (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
 
-    runFlow(iNodes, iEdges, updateConfig, updateState, updateRunState)
+    runFlow({}, iNodes, iEdges, updateConfig, updateState, updateRunState)
       .then(() => {
         toast.success('Flow run success');
       })
@@ -188,10 +202,19 @@ function Flow() {
   }, [nodes, edges, updateNodeData, toINode, toIEdge]);
 
   // 导出流
-  const exportFlow = useCallback(() => {
+  const handleExport = useCallback(() => {
     const iNodes = nodes.map((node) => ({ ...toINode(node), position: node.position }));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const flowDSL = dumpFlow(iNodes, iEdges);
+    const flowDSL = dumpDSL({
+      main: {
+        id: 'main',
+        name: 'Main',
+        description: 'Main flow',
+        nodes: iNodes,
+        edges: iEdges,
+      },
+      flowNodeTypes: Object.values(flowNodeTypes),
+    });
     // 导出为json
     const flowDSLJSON = JSON.stringify(flowDSL, null, 2);
     const blob = new Blob([flowDSLJSON], { type: 'application/json' });
@@ -201,7 +224,7 @@ function Flow() {
     a.download = 'flow.json';
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, edges, toINode, toIEdge]);
+  }, [nodes, edges, toINode, toIEdge, flowNodeTypes]);
 
   // 打开文件选择器
   const handleImportClick = useCallback(() => {
@@ -217,11 +240,12 @@ function Flow() {
     reader.onload = async (e) => {
       try {
         const dsl: IFlowDSL = JSON.parse(String(e.target?.result));
-        const { nodes: loadedNodes, edges: loadedEdges } = loadFlow(dsl, nodeTypeMap);
+        const { main, flowNodeTypes } = loadDSL(dsl, nodeTypeMap, newFlowNodeType);
 
         // 设置节点和边
-        setNodes(loadedNodes.map(fromIDSLNode));
-        setEdges(loadedEdges.map(fromIDSLEdge));
+        setNodes(main.nodes.map(fromIDSLNode));
+        setEdges(main.edges.map(fromIDSLEdge));
+        setFlowNodeTypes(flowNodeTypes);
         fitView();
 
         toast.success('Flow import success!');
@@ -245,6 +269,15 @@ function Flow() {
     reader.readAsText(file);
   }, [setNodes, setEdges, fitView]);
 
+  // 将当前Flow注册为类型
+  const handleAddFlow = useCallback(() => {
+    const iNodes = nodes.map((node) => ({ ...toINode(node), position: node.position }));
+    const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
+    const flowNodeType = newFlowNodeType(generateId(), 'New Flow Type', 'New Flow Type Description', iNodes, iEdges);
+    setFlowNodeTypes([...flowNodeTypes, flowNodeType]);
+  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]);
+
+
   return (
     <div className="w-full h-screen flex flex-row">
       {/* 隐藏文件输入 */}
@@ -263,23 +296,27 @@ function Flow() {
           </Button>
         </div>
         <div className='space-y-2'>
-          <Button className="w-full" onClick={run}>
+          <Button className="w-full" onClick={handleRun}>
             Run
           </Button>
-          <Button className="w-full" onClick={exportFlow}>
+          <Button className="w-full" onClick={handleExport}>
             Export
           </Button>
           <Button className="w-full" onClick={handleImportClick}>
             Import
           </Button>
+          <Button className="w-full" onClick={() => handleAddFlow()}>
+            Add Flow
+          </Button>
         </div>
+
         <Separator className="my-2" />
+
         <div className="text-lg font-bold">Nodes</div>
         <div className="text-sm text-gray-500">Drag and drop to add nodes</div>
         <Separator className="my-2" />
         <div className="space-y-2">
-          {allNodeTypes
-            .filter(nt => nt.id !== 'start' && nt.id !== 'end')
+          {basicNodeTypes
             .map((nodeType) => (
               <Button draggable className="w-full" key={nodeType.id}
                 onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
@@ -287,7 +324,21 @@ function Flow() {
               </Button>
             ))}
         </div>
-        <div className="mt-auto"></div>
+
+        <Separator className="my-2" />
+
+        <div className="text-lg font-bold">Flows</div>
+        <div className="text-sm text-gray-500">Drag and drop to add flows</div>
+        <Separator className="my-2" />
+        <div className="space-y-2">
+          {flowNodeTypes
+            .map((nodeType) => (
+              <Button draggable className="w-full" key={nodeType.id}
+                onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
+                {nodeType.name}
+              </Button>
+            ))}
+        </div>
       </div>
       <ReactFlow
         nodes={nodes}

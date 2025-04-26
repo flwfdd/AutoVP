@@ -109,6 +109,21 @@ export interface IEdge {
   value?: any;
 }
 
+// 带位置的节点
+export interface INodeWithPosition extends INode {
+  position: { x: number, y: number };
+}
+
+// 单个Flow抽象
+export interface IFlow {
+  id: string;
+  name: string;
+  description: string;
+  nodes: INodeWithPosition[];
+  edges: IEdge[];
+}
+
+
 // 运行节点
 interface INodeRun extends INode {
   inputEdges: IEdge[];
@@ -122,9 +137,24 @@ interface IEdgeRun extends IEdge {
 }
 
 // 运行流
-export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeConfig: (nodeId: string, config: Partial<INodeConfig>) => void, updateNodeState: (nodeId: string, state: Partial<INodeState>) => void, updateNodeRunState: (nodeId: string, runState: Partial<INodeStateRun<INodeIO, INodeIO>>) => void) {
+export async function runFlow(
+  flowInput: INodeIO,
+  nodeList: INode[],
+  edgeList: IEdge[],
+  updateNodeConfig: (nodeId: string, config: INodeConfig) => void,
+  updateNodeState: (nodeId: string, state: INodeState) => void,
+  updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => void
+) {
+  let startNodeId = '';
+  let endNodeId = '';
   // 节点列表
   const nodes = nodeList.reduce<Record<string, INodeRun>>((acc, node) => {
+    if (node.type.id === 'start') {
+      startNodeId = node.id;
+    }
+    if (node.type.id === 'end') {
+      endNodeId = node.id;
+    }
     acc[node.id] = {
       ...node,
       inputEdges: edgeList.filter((edge) => edge.target.node.id === node.id),
@@ -133,6 +163,10 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
     }
     return acc;
   }, {});
+
+  if (!startNodeId || !endNodeId) {
+    throw new Error('Start or end node not found');
+  }
 
   // 边列表
   const edges = edgeList.reduce<Record<string, IEdgeRun>>((acc, edge) => {
@@ -178,14 +212,15 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
         // 执行节点
         const output = await node.type.run({
           config: node.config,
-          updateConfig: (config: Partial<INodeConfig>) => {
+          updateConfig: (config: INodeConfig) => {
             updateNodeConfig(node.id, config);
           },
           state: node.state,
-          updateState: (state: Partial<INodeState>) => {
+          updateState: (state: INodeState) => {
             updateNodeState(node.id, state);
           },
-          input,
+          // 特殊处理开始节点
+          input: node.id === startNodeId ? flowInput : node.runState.input,
         });
         // 运行后callback
         console.log('output', node.config.name, node.id, output);
@@ -227,6 +262,44 @@ export async function runFlow(nodeList: INode[], edgeList: IEdge[], updateNodeCo
     }
     readyNodes = newReadyNodes;
   }
+
+  if (nodes[endNodeId].runState.status !== 'success') {
+    throw new Error('End node is not success');
+  }
+
+  return nodes[endNodeId].runState.output;
+}
+
+// 节点 UI 上下文
+interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+  config: C;
+  state: S;
+  runState: INodeStateRun<I, O>;
+  setConfig: (newConfig: Partial<C>) => void;
+  setState: (newState: Partial<S>) => void;
+}
+
+// 节点 UI 上下文 Helper 函数
+export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
+  props: INodeProps<C, S, I, O>
+): IUseNodeUIContext<C, S, I, O> {
+  const { updateNodeData } = useReactFlow();
+
+  const setConfig = useCallback((config: Partial<C>) => {
+    updateNodeData(props.id, { ...props.data, config: { ...props.data.config, ...config } });
+  }, [props.id, props.data, updateNodeData]);
+
+  const setState = useCallback((state: Partial<S>) => {
+    updateNodeData(props.id, { ...props.data, state: { ...props.data.state, ...state } });
+  }, [props.id, props.data, updateNodeData]);
+
+  return {
+    config: props.data.config,
+    state: props.data.state as S, // 明确类型
+    runState: props.data.runState as INodeStateRun<I, O>,
+    setConfig,
+    setState,
+  };
 }
 
 // 位置抽象
@@ -256,31 +329,36 @@ const EdgeDSLSchema = z.object({
   target: HandleDSLSchema,
 });
 
-// 导出流 DSL Schema
+// 流 DSL Schema
 export const FlowDSLSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
   nodes: NodeDSLSchema.array(),
   edges: EdgeDSLSchema.array(),
 });
 export type IFlowDSL = z.infer<typeof FlowDSLSchema>;
 
-export interface INodeWithPosition extends INode {
-  position: { x: number, y: number };
-}
+// 导出 DSL Schema
+export const DSLSchema = z.object({
+  main: FlowDSLSchema,
+  flows: FlowDSLSchema.array(),
+});
+export type IDSL = z.infer<typeof DSLSchema>;
 
-// 导出流
-export function dumpFlow(
-  nodeList: INodeWithPosition[],
-  edgeList: IEdge[]
-): IFlowDSL {
+// 导出单个Flow
+function dumpFlow(input: IFlow): IFlowDSL {
   return {
-    nodes: nodeList.map((node) => ({
+    id: input.id,
+    name: input.name,
+    description: input.description,
+    nodes: input.nodes.map((node) => ({
       id: node.id,
       type: node.type.id,
       position: node.position,
       config: node.config,
-      state: node.state,
     })),
-    edges: edgeList.map((edge) => ({
+    edges: input.edges.map((edge) => ({
       id: edge.id,
       source: {
         node: edge.source.node.id,
@@ -294,14 +372,28 @@ export function dumpFlow(
   }
 }
 
-// 节点类型映射
-type NodeTypeMap = Record<string, INodeType<any, any, any, any>>;
+// 和DSL相互转换的抽象
+interface IDumpDSLIO {
+  main: IFlow;
+  flowNodeTypes: IFlowNodeType[];
+}
 
-// 从DSL加载流
-export function loadFlow(
+// 导出完整工程DSL
+export function dumpDSL(input: IDumpDSLIO): IDSL {
+  return {
+    main: dumpFlow(input.main),
+    flows: input.flowNodeTypes.map(dumpFlow),
+  }
+}
+
+// 节点类型映射
+type INodeTypeMap = Record<string, INodeType<any, any, any, any>>;
+
+// 从单个Flow加载节点和边
+function loadFlow(
   unvalidatedDsl: unknown,
-  nodeTypeMap: NodeTypeMap
-): { nodes: INodeWithPosition[], edges: IEdge[] } {
+  nodeTypeMap: INodeTypeMap
+): IFlow {
   let dsl: IFlowDSL;
   try {
     // 解析和验证格式
@@ -352,37 +444,64 @@ export function loadFlow(
     return newEdge;
   });
 
-  return { nodes, edges };
-}
-
-// 节点 UI 上下文
-interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
-  config: C;
-  state: S;
-  runState: INodeStateRun<I, O>;
-  setConfig: (newConfig: Partial<C>) => void;
-  setState: (newState: Partial<S>) => void;
-}
-
-// 节点 UI 上下文 Helper 函数
-export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
-  props: INodeProps<C, S, I, O>
-): IUseNodeUIContext<C, S, I, O> {
-  const { updateNodeData } = useReactFlow();
-
-  const setConfig = useCallback((config: Partial<C>) => {
-    updateNodeData(props.id, { ...props.data, config: { ...props.data.config, ...config } });
-  }, [props.id, props.data, updateNodeData]);
-
-  const setState = useCallback((state: Partial<S>) => {
-    updateNodeData(props.id, { ...props.data, state: { ...props.data.state, ...state } });
-  }, [props.id, props.data, updateNodeData]);
-
   return {
-    config: props.data.config,
-    state: props.data.state as S, // 明确类型
-    runState: props.data.runState as INodeStateRun<I, O>,
-    setConfig,
-    setState,
+    id: dsl.id,
+    name: dsl.name,
+    description: dsl.description,
+    nodes: nodes,
+    edges: edges,
   };
+}
+
+// 子流节点类型
+export interface IFlowNodeInput extends INodeIO {
+  input: INodeIO;
+}
+export interface IFlowNodeOutput extends INodeIO {
+  output: INodeIO;
+}
+export interface IFlowNodeConfig extends INodeConfig { }
+export interface IFlowNodeState extends INodeState {
+  type: IFlowNodeType;
+}
+export type IFlowNodeType = INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput> & IFlow;
+export type INewFlowNodeType = (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
+
+// 从DSL加载完整工程
+export function loadDSL(
+  unvalidatedDsl: unknown,
+  nodeTypeMap: INodeTypeMap,
+  newFlowNodeType: INewFlowNodeType
+): IDumpDSLIO {
+  let dsl: IDSL;
+  try {
+    // 解析和验证格式
+    dsl = DSLSchema.parse(unvalidatedDsl);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("DSL validation failed:", error.errors);
+      throw new Error(`Invalid flow file format: ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+    } else {
+      throw error;
+    }
+  }
+  // 构建子流类型映射 节点和边先留空避免循环依赖
+  const flowNodeTypeMap = dsl.flows.reduce<Record<string, IFlowNodeType>>((acc, flow) => {
+    const flowNodeType = newFlowNodeType(flow.id, flow.name, flow.description, [], []);
+    acc[flowNodeType.id] = flowNodeType;
+    return acc;
+  }, {});
+  const allNodeTypeMap = { ...nodeTypeMap, ...flowNodeTypeMap };
+  // 注入子流类型的节点和边
+  const flows = dsl.flows.map(flow => loadFlow(flow, allNodeTypeMap));
+  flows.forEach(flow => {
+    const flowNodeType = flowNodeTypeMap[flow.id];
+    flowNodeType.nodes = flow.nodes;
+    flowNodeType.edges = flow.edges;
+  });
+  // 加载主流程
+  return {
+    main: loadFlow(dsl.main, allNodeTypeMap),
+    flowNodeTypes: flows.map(flow => flowNodeTypeMap[flow.id]),
+  }
 }

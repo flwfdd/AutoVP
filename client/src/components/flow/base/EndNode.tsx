@@ -19,8 +19,8 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
   },
   defaultState: {},
   ui: EndNodeUI,
-  async run(_context: INodeContext<IEndNodeConfig, IEndNodeState, IEndNodeInput>): Promise<IEndNodeOutput> {
-    return {};
+  async run(context: INodeContext<IEndNodeConfig, IEndNodeState, IEndNodeInput>): Promise<IEndNodeOutput> {
+    return context.input.value;
   }
 };
 
