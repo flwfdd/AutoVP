@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Moon, Sun, SunMoon } from "lucide-react";
+import { Moon, Pencil, Sun, SunMoon, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -26,7 +26,27 @@ import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
 import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
@@ -41,7 +61,7 @@ const initialNodes: Node[] = [
   {
     id: 'start',
     type: 'start',
-    position: { x: 0, y: 0 },
+    position: { x: 50, y: 50 },
     data: {
       config: StartNodeType.defaultConfig,
       state: StartNodeType.defaultState,
@@ -91,6 +111,15 @@ function Flow() {
 
   // 文件输入
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 对话框
+  const [isEditFlowDialogOpen, setIsEditFlowDialogOpen] = useState(false);
+  const [editingFlowType, setEditingFlowType] = useState<IFlowNodeType | null>(null);
+  const [editFlowName, setEditFlowName] = useState('');
+  const [editFlowDescription, setEditFlowDescription] = useState('');
+
+  const [isDeleteFlowDialogOpen, setIsDeleteFlowDialogOpen] = useState(false);
+  const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
 
   // 连接边
   const onConnect = useCallback(
@@ -269,13 +298,60 @@ function Flow() {
     reader.readAsText(file);
   }, [setNodes, setEdges, fitView]);
 
+  // --- Dialog Handlers ---
+  const handleOpenEditFlowDialog = useCallback((flowType: IFlowNodeType) => {
+    setEditingFlowType(flowType);
+    setEditFlowName(flowType.name);
+    setEditFlowDescription(flowType.description);
+    setIsEditFlowDialogOpen(true);
+  }, []);
+
+  const handleSaveEditFlow = useCallback(() => {
+    if (!editingFlowType) return;
+    setFlowNodeTypes(prevTypes =>
+      prevTypes.map(ft => {
+        if (ft.id === editingFlowType.id) {
+          ft.name = editFlowName;
+          ft.description = editFlowDescription;
+        }
+        return ft;
+      })
+    );
+    setIsEditFlowDialogOpen(false);
+    setEditingFlowType(null);
+    toast.success(`Flow updated.`);
+  }, [editingFlowType, editFlowName, editFlowDescription]);
+
+  const handleOpenDeleteFlowDialog = useCallback((flowType: IFlowNodeType) => {
+    setDeletingFlowType(flowType);
+    setIsDeleteFlowDialogOpen(true);
+  }, []);
+
+  const handleConfirmDeleteFlow = useCallback(() => {
+    if (!deletingFlowType) return;
+    setFlowNodeTypes(prevTypes =>
+      prevTypes.filter(ft => ft.id !== deletingFlowType.id)
+    );
+    // Also remove nodes of this type from the canvas? Optional, might be complex.
+    // setNodes(nds => nds.filter(n => n.type !== deletingFlowType.id));
+    setIsDeleteFlowDialogOpen(false);
+    toast.warning(`Flow type "${deletingFlowType.name}" deleted.`);
+    setDeletingFlowType(null);
+  }, [deletingFlowType]);
+  // --- End Dialog Handlers ---
+
   // 将当前Flow注册为类型
   const handleAddFlow = useCallback(() => {
     const iNodes = nodes.map((node) => ({ ...toINode(node), position: node.position }));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const flowNodeType = newFlowNodeType(generateId(), 'New Flow Type', 'New Flow Type Description', iNodes, iEdges);
-    setFlowNodeTypes([...flowNodeTypes, flowNodeType]);
-  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]);
+    // Provide a unique ID, name, and description for the new flow type
+    const newId = 'flow_' + generateId();
+    const newName = `Flow ${flowNodeTypes.length + 1}`;
+    const newDescription = `Custom flow type created on ${new Date().toLocaleString()}`;
+    const flowNodeType = newFlowNodeType(newId, newName, newDescription, iNodes, iEdges);
+    setFlowNodeTypes(prevTypes => [...prevTypes, flowNodeType]);
+    toast.info(`New flow type "${newName}" added.`);
+  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]); // Added flowNodeTypes to dependencies
 
 
   return (
@@ -288,7 +364,7 @@ function Flow() {
         accept=".json"
         onChange={handleFileChange}
       />
-      <div className="w-96 h-auto p-4 box-border shadow-medium rounded-r-lg flex flex-col">
+      <div className="flex flex-col min-w-64 max-w-64 h-auto p-4 shadow-lg rounded-r-lg">
         <div className="flex justify-between items-center mb-2">
           <div className="text-xl font-bold">Auto Vis Code</div>
           <Button variant="outline" size="icon" onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")}>
@@ -312,32 +388,45 @@ function Flow() {
 
         <Separator className="my-2" />
 
-        <div className="text-lg font-bold">Nodes</div>
-        <div className="text-sm text-gray-500">Drag and drop to add nodes</div>
-        <Separator className="my-2" />
-        <div className="space-y-2">
-          {basicNodeTypes
-            .map((nodeType) => (
-              <Button draggable className="w-full" key={nodeType.id}
-                onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
-                {nodeType.name}
-              </Button>
-            ))}
-        </div>
+        <div className="flex flex-col overflow-y-auto">
+          <div className="text-lg font-bold">Nodes</div>
+          <div className="text-sm text-muted-foreground">Drag and drop to add nodes</div>
+          <Separator className="my-2" />
+          <div className="space-y-2">
+            {basicNodeTypes
+              .map((nodeType) => (
+                <Button draggable className="w-full" key={nodeType.id}
+                  onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
+                  {nodeType.name}
+                </Button>
+              ))}
+          </div>
 
-        <Separator className="my-2" />
+          <Separator className="my-2" />
 
-        <div className="text-lg font-bold">Flows</div>
-        <div className="text-sm text-gray-500">Drag and drop to add flows</div>
-        <Separator className="my-2" />
-        <div className="space-y-2">
-          {flowNodeTypes
-            .map((nodeType) => (
-              <Button draggable className="w-full" key={nodeType.id}
-                onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
-                {nodeType.name}
-              </Button>
-            ))}
+          <div className="text-lg font-bold">Flows</div>
+          <div className="text-sm text-muted-foreground">Drag and drop to add flows</div>
+          <Separator className="my-2" />
+          <div className="space-y-2">
+            {flowNodeTypes
+              .map((nodeType) => (
+                <div key={nodeType.id} className="flex items-center gap-1">
+                  <Button
+                    draggable
+                    className="flex-1 min-w-0"
+                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}
+                  >
+                    <span className="truncate">{nodeType.name}</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenEditFlowDialog(nodeType)}>
+                    <Pencil />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteFlowDialog(nodeType)}>
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+          </div>
         </div>
       </div>
       <ReactFlow
@@ -355,6 +444,63 @@ function Flow() {
         <MiniMap />
         <Background variant={BackgroundVariant.Dots} />
       </ReactFlow>
+
+      <Dialog open={isEditFlowDialogOpen} onOpenChange={setIsEditFlowDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Flow</DialogTitle>
+            <DialogDescription>
+              ID: {editingFlowType?.id}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="flow-name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="flow-name"
+                value={editFlowName}
+                onChange={(e) => setEditFlowName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="flow-description" className="text-right">
+                Description
+              </Label>
+              <Input
+                id="flow-description"
+                value={editFlowDescription}
+                onChange={(e) => setEditFlowDescription(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setIsEditFlowDialogOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleSaveEditFlow}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteFlowDialogOpen} onOpenChange={setIsDeleteFlowDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the flow type
+              <span className="font-semibold"> "{deletingFlowType?.name}"</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingFlowType(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDeleteFlow}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

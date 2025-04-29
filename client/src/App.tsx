@@ -1,7 +1,7 @@
+import FlowPage from "@/pages/Flow"
 import { Route, Routes } from "react-router"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "./components/theme-provider"
-import FlowPage from "./pages/Flow"
 
 function App() {
   return (

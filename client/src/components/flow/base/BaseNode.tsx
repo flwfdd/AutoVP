@@ -137,7 +137,7 @@ function EditNodeDialog<C extends INodeConfig>(
       <DialogContent className="max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Edit Node Config
+            Edit Node
           </DialogTitle>
           <DialogDescription>
             Type: {nodeType.name}
@@ -146,7 +146,7 @@ function EditNodeDialog<C extends INodeConfig>(
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="name">
-              名称
+              Name
             </Label>
             <Input
               id="name"
@@ -156,7 +156,7 @@ function EditNodeDialog<C extends INodeConfig>(
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="description">
-              描述
+              Description
             </Label>
             <Textarea
               id="description"
