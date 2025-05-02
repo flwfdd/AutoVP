@@ -1,6 +1,6 @@
-import { IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INodeContext, INodeProps, INodeWithPosition, runFlow, useNodeUIContext } from '@/lib/flow/flow';
+import { IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeIO, INodeProps, INodeStateRun, INodeWithPosition, runFlow, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
-import BaseNode from './base/BaseNode';
+import BaseNode from './BaseNode';
 
 export function newFlowNodeType(id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]): IFlowNodeType {
   const flowNodeType: Partial<IFlowNodeType> = {
@@ -15,15 +15,31 @@ export function newFlowNodeType(id: string, name: string, description: string, n
     },
     ui: FlowNodeUI,
     async run(context: INodeContext<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput>): Promise<IFlowNodeOutput> {
-      const updateAny = (_nodeId: string, _data: any) => { }
-      const output = await runFlow(context.input.input, context.state.type.nodes, context.state.type.edges, updateAny, updateAny, updateAny);
+      const runNodeMap: Record<string, INode> = {}
+      context.state.runNodes = context.state.type.nodes.map(node => {
+        const runNode = {
+          id: node.id,
+          type: node.type,
+          config: node.config,
+          state: node.type.defaultState,
+          runState: structuredClone(node.runState),
+        } as INode;
+        runNodeMap[runNode.id] = runNode;
+        return runNode;
+      }
+      )
+      const fakeUpdate = (_a: any, _b: any) => { }
+      const updateRunState = (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => runNodeMap[nodeId].runState = structuredClone(runState)
+
+      const output = await runFlow(context.input.input, context.state.runNodes, context.state.type.edges, fakeUpdate, fakeUpdate, updateRunState, context.startTime);
       return { output };
     }
   };
 
   flowNodeType.defaultState = {
-    type: flowNodeType as IFlowNodeType
-  };
+    type: flowNodeType,
+    runNodes: []
+  } as IFlowNodeState;
 
   return flowNodeType as IFlowNodeType;
 }

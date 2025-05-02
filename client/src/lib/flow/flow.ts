@@ -69,6 +69,7 @@ export interface INodeContext<C extends INodeConfig, S extends INodeState, I ext
   state: S;
   updateState: (state: S) => void;
   input: I;
+  startTime: number;
 }
 
 // 节点运行日志格式化
@@ -143,7 +144,8 @@ export async function runFlow(
   edgeList: IEdge[],
   updateNodeConfig: (nodeId: string, config: INodeConfig) => void,
   updateNodeState: (nodeId: string, state: INodeState) => void,
-  updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => void
+  updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => void,
+  startTime = Date.now()
 ) {
   let startNodeId = '';
   let endNodeId = '';
@@ -184,7 +186,6 @@ export async function runFlow(
   });
 
   // 初始化可执行节点列表为入度为0的节点
-  const startTime = Date.now();
   let readyNodes = Object.values(nodes).filter((node) => node.inputEdges.length === 0);
   while (1) {
     if (readyNodes.length === 0) {
@@ -221,6 +222,7 @@ export async function runFlow(
           },
           // 特殊处理开始节点
           input: node.id === startNodeId ? flowInput : node.runState.input,
+          startTime: startTime
         });
         // 运行后callback
         console.log('output', node.config.name, node.id, output);
@@ -463,6 +465,7 @@ export interface IFlowNodeOutput extends INodeIO {
 export interface IFlowNodeConfig extends INodeConfig { }
 export interface IFlowNodeState extends INodeState {
   type: IFlowNodeType;
+  runNodes: INode[];
 }
 export type IFlowNodeType = INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput> & IFlow;
 export type INewFlowNodeType = (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;

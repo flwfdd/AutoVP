@@ -16,90 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INodeConfig, INodeIO, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { INode, INodeConfig, INodeIO, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LabelHandle from './LabelHandle';
+import NodeRunLogDetail from "../log/NodeRunLogDetail";
 
-interface RunStateDialogButtonProps<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
-  nodeType: INodeType<C, S, I, O>;
-  config: C;
-  state: S;
-  runState: INodeStateRun<I, O> | undefined;
-}
-
-function RunStateDialogButton<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
-  { nodeType, config, state, runState }: RunStateDialogButtonProps<C, S, I, O>
-) {
-  const logFormatter = useMemo(() => nodeType.logFormatter || ((_config: C, _state: S, log: INodeRunLog<I, O>) => {
-    return {
-      input: JSON.stringify(log.input, null, 2),
-      output: JSON.stringify(log.output, null, 2),
-    };
-  }), [nodeType.logFormatter]);
-
-  const formattedLogs = useMemo(() => runState?.logs.map((log) => {
-    const formattedLog = logFormatter(config, state, log);
-    return {
-      ...log,
-      input: formattedLog.input,
-      output: formattedLog.output,
-    };
-  }), [runState?.logs, logFormatter, config, state]);
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          {!runState || runState?.status === 'idle' && <Hourglass className="h text-gray-600" />}
-          {runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
-          {runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}
-          {runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
-            {config.name}
-          </DialogTitle>
-          <DialogDescription>
-            {config.description}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          {formattedLogs && formattedLogs.length ?
-            formattedLogs.map((log, index) => (
-              <div key={index} className="flex flex-col gap-2 bg-muted p-2 rounded-md">
-                <div className="flex gap-2 justify-between">
-                  <Badge variant="outline" className="text-xs text-center border-green-600 bg-green-600/10">
-                    Input <br />
-                    {log.startMs} ms
-                  </Badge>
-                  <Badge variant="outline" className="text-xs text-center border-yellow-600 bg-yellow-600/10">
-                    Duration <br />
-                    {log.endMs ? log.endMs - log.startMs : ''} ms
-                  </Badge>
-                  <Badge variant="outline" className="text-xs text-center border-red-600 bg-red-600/10">
-                    Output <br />
-                    {log.endMs} ms
-                  </Badge>
-                </div>
-                <div className="flex gap-4">
-                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.input}</pre>
-                  <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.output}</pre>
-                </div>
-              </div>
-            ))
-            : (
-              <p className="text-center text-muted-foreground">No run log yet.</p>
-            )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 interface EditNodeDialogProps<C extends INodeConfig> {
   nodeType: INodeType<any, any, any, any>;
@@ -224,12 +147,36 @@ function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO
               config={config}
               setConfig={setConfig}
             />
-            <RunStateDialogButton
-              nodeType={nodeType}
-              config={config}
-              state={state}
-              runState={runState}
-            />
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  {!runState || runState?.status === 'idle' && <Hourglass className="h text-gray-600" />}
+                  {runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
+                  {runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}
+                  {runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
+                    {config.name}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {config.description}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <NodeRunLogDetail
+                    nodeType={nodeType}
+                    config={config}
+                    state={state}
+                    runState={runState}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <Separator />

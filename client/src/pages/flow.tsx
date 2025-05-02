@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Moon, Pencil, Sun, SunMoon, Trash2 } from "lucide-react";
+import { Moon, Pencil, Sun, SunMoon, Torus, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -21,7 +21,7 @@ import { EndNodeType } from "@/components/flow/base/EndNode";
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
-import { newFlowNodeType } from '@/components/flow/FlowNode';
+import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
 import { TextNodeType } from '@/components/flow/TextNode';
@@ -48,9 +48,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
-import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
+import TimelineLog from "@/components/flow/log/TimelineLog";
 
 // 注册节点类型
 const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
@@ -120,6 +121,8 @@ function Flow() {
 
   const [isDeleteFlowDialogOpen, setIsDeleteFlowDialogOpen] = useState(false);
   const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
+
+  const [isLogDialogOpen, setIsLogDialogOpen] = useState(true);
 
   // 连接边
   const onConnect = useCallback(
@@ -356,76 +359,75 @@ function Flow() {
 
   return (
     <div className="w-full h-screen flex flex-row">
-      {/* 隐藏文件输入 */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        accept=".json"
-        onChange={handleFileChange}
-      />
-      <div className="flex flex-col min-w-64 max-w-64 h-auto p-4 shadow-lg rounded-r-lg">
-        <div className="flex justify-between items-center mb-2">
-          <div className="text-xl font-bold">Auto Vis Code</div>
-          <Button variant="outline" size="icon" onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")}>
-            {theme === "light" ? <Sun /> : theme === "dark" ? <Moon /> : <SunMoon />}
-          </Button>
-        </div>
-        <div className='space-y-2'>
-          <Button className="w-full" onClick={handleRun}>
-            Run
-          </Button>
-          <Button className="w-full" onClick={handleExport}>
-            Export
-          </Button>
-          <Button className="w-full" onClick={handleImportClick}>
-            Import
-          </Button>
-          <Button className="w-full" onClick={() => handleAddFlow()}>
-            Add Flow
-          </Button>
-        </div>
-
-        <Separator className="my-2" />
-
-        <div className="flex flex-col overflow-y-auto">
-          <div className="text-lg font-bold">Nodes</div>
-          <div className="text-sm text-muted-foreground">Drag and drop to add nodes</div>
-          <Separator className="my-2" />
-          <div className="space-y-2">
-            {basicNodeTypes
-              .map((nodeType) => (
-                <Button draggable className="w-full" key={nodeType.id}
-                  onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
-                  {nodeType.name}
-                </Button>
-              ))}
+      <div className="flex flex-col min-w-64 max-w-64 h-auto shadow-lg rounded-r-lg">
+        <div className='p-4 pb-0'>
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-xl font-bold">Auto Vis Code</div>
+            <Button variant="outline" size="icon" onClick={() => setTheme(theme === "light" ? "dark" : theme === "dark" ? "system" : "light")}>
+              {theme === "light" ? <Sun /> : theme === "dark" ? <Moon /> : <SunMoon />}
+            </Button>
+          </div>
+          <div className='space-y-2'>
+            <Button className="w-full" onClick={handleRun}>
+              Run
+            </Button>
+            <Button className="w-full" onClick={handleExport}>
+              Export
+            </Button>
+            <Button className="w-full" onClick={handleImportClick}>
+              Import
+            </Button>
+            <Button className="w-full" onClick={() => handleAddFlow()}>
+              Add Flow
+            </Button>
+            <Button className="w-full" onClick={() => { setIsLogDialogOpen(true) }}>
+              Run Logs
+            </Button>
           </div>
 
-          <Separator className="my-2" />
+          <Separator className="mt-2" />
+        </div>
 
-          <div className="text-lg font-bold">Flows</div>
-          <div className="text-sm text-muted-foreground">Drag and drop to add flows</div>
-          <Separator className="my-2" />
-          <div className="space-y-2">
-            {flowNodeTypes
-              .map((nodeType) => (
-                <div key={nodeType.id} className="flex items-center gap-1">
-                  <Button
-                    draggable
-                    className="flex-1 min-w-0"
-                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}
-                  >
-                    <span className="truncate">{nodeType.name}</span>
+        <div className="p-4 overflow-y-auto">
+          <div className="flex flex-col">
+            <div className="text-lg font-bold">Nodes</div>
+            <div className="text-sm text-muted-foreground">Drag and drop to add nodes</div>
+            <Separator className="my-2" />
+            <div className="space-y-2">
+              {basicNodeTypes
+                .map((nodeType) => (
+                  <Button draggable className="w-full" key={nodeType.id}
+                    onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}>
+                    {nodeType.name}
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenEditFlowDialog(nodeType)}>
-                    <Pencil />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteFlowDialog(nodeType)}>
-                    <Trash2 />
-                  </Button>
-                </div>
-              ))}
+                ))}
+            </div>
+
+            <Separator className="my-2" />
+
+            <div className="text-lg font-bold">Flows</div>
+            <div className="text-sm text-muted-foreground">Drag and drop to add flows</div>
+            <Separator className="my-2" />
+            <div className="space-y-2">
+              {flowNodeTypes
+                .map((nodeType) => (
+                  <div key={nodeType.id} className="flex items-center gap-1">
+                    <Button
+                      draggable
+                      className="flex-1 min-w-0"
+                      onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}
+                    >
+                      <span className="truncate">{nodeType.name}</span>
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditFlowDialog(nodeType)}>
+                      <Pencil />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteFlowDialog(nodeType)}>
+                      <Trash2 />
+                    </Button>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
       </div>
@@ -445,8 +447,16 @@ function Flow() {
         <Background variant={BackgroundVariant.Dots} />
       </ReactFlow>
 
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept=".json"
+        onChange={handleFileChange}
+      />
+
       <Dialog open={isEditFlowDialogOpen} onOpenChange={setIsEditFlowDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Flow</DialogTitle>
             <DialogDescription>
@@ -501,8 +511,39 @@ function Flow() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LogDialog
+        isLogDialogOpen={isLogDialogOpen}
+        setIsLogDialogOpen={setIsLogDialogOpen}
+        nodes={nodes.map(toINode)}
+      ></LogDialog>
+
     </div>
   );
+}
+
+interface LogDialogProps {
+  isLogDialogOpen: boolean
+  setIsLogDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
+  nodes: INode[]
+}
+
+function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes }: LogDialogProps) {
+  return (
+    <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
+      <DialogContent className="min-w-[90vw] min-h-[90vh] max-w-[90vw] max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Run Logs</DialogTitle>
+          <DialogDescription>
+            Timeline logs of recent flow run
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 h-[calc(90vh-120px)]">
+          <TimelineLog nodes={nodes} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 export default function FlowPage() {
