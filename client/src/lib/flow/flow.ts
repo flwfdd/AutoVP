@@ -79,7 +79,7 @@ export interface INodeContext<C extends IBaseNodeConfig, S extends IBaseNodeStat
   state: S;
   updateState: (state: S) => void;
   input: I;
-  startTime: number;
+  flowStack: IRunFlowStack[];
 }
 
 // 节点运行日志格式化
@@ -150,6 +150,12 @@ interface IEdgeRun extends IEdge {
   value: any;
 }
 
+// 运行流栈
+export interface IRunFlowStack {
+  flow: IFlow;
+  startTime: number;
+}
+
 // 运行流
 export async function runFlow(
   flowInput: INodeInput,
@@ -158,8 +164,9 @@ export async function runFlow(
   updateNodeConfig: (nodeId: string, config: INodeConfig) => void,
   updateNodeState: (nodeId: string, state: INodeState) => void,
   updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => void,
-  startTime = Date.now()
+  flowStack: IRunFlowStack[]
 ) {
+  const startTime = flowStack.length ? flowStack[0].startTime : Date.now();
   let startNodeId = '';
   let endNodeId = '';
   // 节点列表
@@ -235,7 +242,7 @@ export async function runFlow(
           },
           // 特殊处理开始节点
           input: node.id === startNodeId ? flowInput : node.runState.input,
-          startTime: startTime
+          flowStack: flowStack,
         });
         // 运行后callback
         console.log('output', node.config.name, node.id, output);

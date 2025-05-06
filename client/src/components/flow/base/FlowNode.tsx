@@ -1,4 +1,4 @@
-import { FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeWithPosition, runFlow, useNodeUIContext } from '@/lib/flow/flow';
+import { FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeWithPosition, IRunFlowStack, runFlow, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './BaseNode';
 
@@ -33,8 +33,17 @@ export function newFlowNodeType(id: string, name: string, description: string, n
       )
       const fakeUpdate = (_a: any, _b: any) => { }
       const updateRunState = (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => runNodeMap[nodeId].runState = structuredClone(runState)
+      context.flowStack.forEach(stack => {
+        if (stack.flow.id === context.state.type.id) {
+          throw new Error('Cannot run flow inside itself: ' + context.state.type.name);
+        }
+      })
+      const flowStack: IRunFlowStack[] = context.flowStack.concat({
+        flow: context.state.type,
+        startTime: Date.now(),
+      })
 
-      const output = await runFlow(context.input.input, context.state.runNodes, context.state.type.edges, fakeUpdate, fakeUpdate, updateRunState, context.startTime);
+      const output = await runFlow(context.input.input, context.state.runNodes, context.state.type.edges, fakeUpdate, fakeUpdate, updateRunState, flowStack);
       return { output };
     }
   };

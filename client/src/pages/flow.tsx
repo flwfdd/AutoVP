@@ -48,7 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
-import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IEdge, IFlow, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import TimelineLog from "@/components/flow/log/TimelineLog";
@@ -107,6 +107,15 @@ function Flow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, updateNodeData, fitView } = useReactFlow();
 
+  // 编辑Flow时缓存的主流
+  interface IMainFlow {
+    nodes: INodeWithPosition[];
+    edges: IEdge[];
+  }
+  const [mainFlow, setMainFlow] = useState<IMainFlow | null>(null);
+
+  const [editingFlow, setEditingFlow] = useState<IFlowNodeType | null>(null);
+
   // 主题
   const { isDarkMode, setTheme, theme } = useTheme();
 
@@ -122,7 +131,7 @@ function Flow() {
   const [isDeleteFlowDialogOpen, setIsDeleteFlowDialogOpen] = useState(false);
   const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
 
-  const [isLogDialogOpen, setIsLogDialogOpen] = useState(true);
+  const [isRunLogDialogOpen, setIsRunLogDialogOpen] = useState(false);
 
   // 连接边
   const onConnect = useCallback(
@@ -170,13 +179,14 @@ function Flow() {
   };
 
   // 将节点转换为运行时节点
-  const toINode = useCallback((node: Node) => ({
+  const toINode = useCallback((node: Node, withRunState: boolean = false, withPosition: boolean = true) => ({
     id: node.id,
     type: nodeTypeMap[node.type as string],
-    config: node.data.config as INodeConfig,
-    state: node.data.state as INodeState,
-    runState: node.data.runState as INodeStateRun<INodeInput, INodeOutput>,
-  }), [nodeTypeMap]);
+    config: node.data.config,
+    state: node.data.state,
+    runState: withRunState ? node.data.runState : structuredClone(defaultNodeRunState),
+    position: withPosition ? node.position : undefined,
+  } as INodeWithPosition), [nodeTypeMap]);
 
   // 将边转换为运行时边
   const toIEdge = useCallback((edge: Edge) => {
@@ -186,11 +196,11 @@ function Flow() {
     return {
       id: edge.id,
       source: {
-        node: toINode(sourceNode),
+        node: toINode(sourceNode) as INode,
         key: edge.sourceHandle
       },
       target: {
-        node: toINode(targetNode),
+        node: toINode(targetNode) as INode,
         key: edge.targetHandle
       }
     };
@@ -222,8 +232,17 @@ function Flow() {
     const updateConfig = (nodeId: string, config: INodeConfig) => updateNodeData(nodeId, { config: structuredClone(config) });
     const updateState = (nodeId: string, state: INodeState) => updateNodeData(nodeId, { state: structuredClone(state) });
     const updateRunState = (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
-
-    runFlow({}, iNodes, iEdges, updateConfig, updateState, updateRunState)
+    const flowStack: IRunFlowStack[] = [{
+      flow: {
+        id: 'main',
+        name: 'Main',
+        description: 'Main flow',
+        nodes: iNodes,
+        edges: iEdges,
+      },
+      startTime: Date.now(),
+    }];
+    runFlow({}, iNodes, iEdges, updateConfig, updateState, updateRunState, flowStack)
       .then(() => {
         toast.success('Flow run success');
       })
@@ -235,7 +254,7 @@ function Flow() {
 
   // 导出流
   const handleExport = useCallback(() => {
-    const iNodes = nodes.map((node) => ({ ...toINode(node), position: node.position }));
+    const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
     const flowDSL = dumpDSL({
       main: {
@@ -301,7 +320,7 @@ function Flow() {
     reader.readAsText(file);
   }, [setNodes, setEdges, fitView]);
 
-  // --- Dialog Handlers ---
+
   const handleOpenEditFlowDialog = useCallback((flowType: IFlowNodeType) => {
     setEditingFlowType(flowType);
     setEditFlowName(flowType.name);
@@ -309,7 +328,7 @@ function Flow() {
     setIsEditFlowDialogOpen(true);
   }, []);
 
-  const handleSaveEditFlow = useCallback(() => {
+  const handleSaveEditFlowInfo = useCallback(() => {
     if (!editingFlowType) return;
     setFlowNodeTypes(prevTypes =>
       prevTypes.map(ft => {
@@ -331,30 +350,66 @@ function Flow() {
   }, []);
 
   const handleConfirmDeleteFlow = useCallback(() => {
+    setIsEditFlowDialogOpen(false);
     if (!deletingFlowType) return;
     setFlowNodeTypes(prevTypes =>
       prevTypes.filter(ft => ft.id !== deletingFlowType.id)
     );
-    // Also remove nodes of this type from the canvas? Optional, might be complex.
+    // TODO: Also remove nodes of this type from the canvas? Optional, might be complex.
     // setNodes(nds => nds.filter(n => n.type !== deletingFlowType.id));
     setIsDeleteFlowDialogOpen(false);
     toast.warning(`Flow type "${deletingFlowType.name}" deleted.`);
     setDeletingFlowType(null);
   }, [deletingFlowType]);
-  // --- End Dialog Handlers ---
+
+  const saveEditingFlow = useCallback(() => {
+    if (!editingFlow) return;
+    setFlowNodeTypes(prevTypes => prevTypes.map(ft => {
+      if (ft.id === editingFlow.id) {
+        ft.nodes = nodes.map((node) => toINode(node));
+        ft.edges = edges.map(toIEdge).filter((edge): edge is IEdge => edge !== null);
+      }
+      return ft;
+    }))
+  }, [editingFlow, setFlowNodeTypes, toINode, toIEdge]);
+
+  const handleEditFlow = useCallback((flowType: IFlowNodeType) => {
+    setIsEditFlowDialogOpen(false);
+    if (editingFlow) {
+      // 如果正在编辑其他Flow，则先保存
+      saveEditingFlow();
+    } else {
+      // 否则保存主Flow
+      setMainFlow({
+        nodes: nodes.map((node) => toINode(node)),
+        edges: edges.map(toIEdge).filter((edge): edge is IEdge => edge !== null),
+      })
+    }
+    setEditingFlow(flowType);
+    setNodes(flowType.nodes.map(fromIDSLNode));
+    setEdges(flowType.edges.map(fromIDSLEdge));
+  }, [setIsEditFlowDialogOpen, nodes, setNodes, edges, setEdges, setMainFlow, fromIDSLNode, fromIDSLEdge, toINode, toIEdge, editingFlow, setEditingFlow, saveEditingFlow])
+
+  const handleBackToMainFlow = useCallback(() => {
+    if (!editingFlow) return;
+    saveEditingFlow();
+    setEditingFlow(null);
+    setNodes(mainFlow?.nodes.map(fromIDSLNode) ?? []);
+    setEdges(mainFlow?.edges.map(fromIDSLEdge) ?? []);
+  }, [editingFlow, saveEditingFlow, setEditingFlow, setNodes, setEdges, mainFlow, fromIDSLNode, fromIDSLEdge]);
 
   // 将当前Flow注册为类型
-  const handleAddFlow = useCallback(() => {
-    const iNodes = nodes.map((node) => ({ ...toINode(node), position: node.position }));
+  const handleRegisterFlow = useCallback(() => {
+    const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    // Provide a unique ID, name, and description for the new flow type
+    // 保证flow节点的id由flow_开头
     const newId = 'flow_' + generateId();
     const newName = `Flow ${flowNodeTypes.length + 1}`;
     const newDescription = `Custom flow type created on ${new Date().toLocaleString()}`;
     const flowNodeType = newFlowNodeType(newId, newName, newDescription, iNodes, iEdges);
     setFlowNodeTypes(prevTypes => [...prevTypes, flowNodeType]);
     toast.info(`New flow type "${newName}" added.`);
-  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]); // Added flowNodeTypes to dependencies
+  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]);
 
 
   return (
@@ -377,12 +432,18 @@ function Flow() {
             <Button className="w-full" onClick={handleImportClick}>
               Import
             </Button>
-            <Button className="w-full" onClick={() => handleAddFlow()}>
-              Add Flow
-            </Button>
-            <Button className="w-full" onClick={() => { setIsLogDialogOpen(true) }}>
+            <Button className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
               Run Logs
             </Button>
+            {editingFlow ? (
+              <Button className="w-full" onClick={handleBackToMainFlow}>
+                Back to Main Flow
+              </Button>
+            ) : (
+              <Button className="w-full" onClick={handleRegisterFlow}>
+                Register Flow
+              </Button>
+            )}
           </div>
 
           <Separator className="mt-2" />
@@ -421,9 +482,6 @@ function Flow() {
                     </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleOpenEditFlowDialog(nodeType)}>
                       <Pencil />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenDeleteFlowDialog(nodeType)}>
-                      <Trash2 />
                     </Button>
                   </div>
                 ))}
@@ -486,10 +544,20 @@ function Flow() {
                 className="col-span-3"
               />
             </div>
+            {editingFlowType && (
+              <div className="grid grid-cols-2 items-center gap-4">
+                <Button variant="outline" onClick={() => handleEditFlow(editingFlowType)}>
+                  <Pencil /> Edit
+                </Button>
+                <Button variant="outline" onClick={() => handleOpenDeleteFlowDialog(editingFlowType)}>
+                  <Trash2 /> Delete
+                </Button>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setIsEditFlowDialogOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleSaveEditFlow}>Save</Button>
+            <Button type="button" onClick={handleSaveEditFlowInfo}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -513,9 +581,9 @@ function Flow() {
       </AlertDialog>
 
       <LogDialog
-        isLogDialogOpen={isLogDialogOpen}
-        setIsLogDialogOpen={setIsLogDialogOpen}
-        nodes={nodes.map(toINode)}
+        isLogDialogOpen={isRunLogDialogOpen}
+        setIsLogDialogOpen={setIsRunLogDialogOpen}
+        nodes={nodes.map(node => toINode(node, true, false))}
       ></LogDialog>
 
     </div>
