@@ -3,24 +3,34 @@ import { useCallback } from "react";
 import { z } from 'zod';
 
 // 节点输入输出基础类型
-export interface INodeIO {
-  [key: string]: any;
-}
+export const BaseNodeInputSchema = z.object({});
+export type IBaseNodeInput = z.infer<typeof BaseNodeInputSchema>;
+export const NodeInputSchema = BaseNodeInputSchema.catchall(z.any());
+export type INodeInput = z.infer<typeof NodeInputSchema>;
+
+export const BaseNodeOutputSchema = z.object({});
+export type IBaseNodeOutput = z.infer<typeof BaseNodeOutputSchema>;
+export const NodeOutputSchema = BaseNodeOutputSchema.catchall(z.any());
+export type INodeOutput = z.infer<typeof NodeOutputSchema>;
+
 
 // 节点持久化数据抽象
-const NodeConfigSchema = z.object({
+export const BaseNodeConfigSchema = z.object({
   name: z.string(),
   description: z.string(),
-}).catchall(z.any());
+});
+export type IBaseNodeConfig = z.infer<typeof BaseNodeConfigSchema>;
+export const NodeConfigSchema = BaseNodeConfigSchema.catchall(z.any());
 export type INodeConfig = z.infer<typeof NodeConfigSchema>;
 
 // 节点非持久化状态抽象
-export interface INodeState {
+export interface IBaseNodeState { }
+export interface INodeState extends IBaseNodeState {
   [key: string]: any;
 }
 
 // 节点运行记录
-export interface INodeRunLog<I extends INodeIO, O extends INodeIO> {
+export interface INodeRunLog<I extends IBaseNodeInput, O extends IBaseNodeOutput> {
   startMs: number;
   endMs?: number;
   input: I;
@@ -28,14 +38,14 @@ export interface INodeRunLog<I extends INodeIO, O extends INodeIO> {
 }
 
 // 节点运行时状态抽象
-export interface INodeStateRun<I extends INodeIO, O extends INodeIO> {
+export interface INodeStateRun<I extends IBaseNodeInput, O extends IBaseNodeOutput> {
   input: I;
   output: O;
   status: 'idle' | 'running' | 'success' | 'error';
   error?: any;
   logs: INodeRunLog<I, O>[];
 }
-export const defaultNodeRunState: INodeStateRun<INodeIO, INodeIO> = {
+export const defaultNodeRunState: INodeStateRun<IBaseNodeInput, IBaseNodeOutput> = {
   status: 'idle',
   input: {},
   output: {},
@@ -55,7 +65,7 @@ interface HandleConfig {
 }
 
 // 节点 UI Props 抽象
-export interface INodeProps<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> extends NodeProps {
+export interface INodeProps<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> extends NodeProps {
   nodeType: INodeType<C, S, I, O>;
   handles?: HandleConfig[];
   children?: React.ReactNode;
@@ -63,7 +73,7 @@ export interface INodeProps<C extends INodeConfig, S extends INodeState, I exten
 }
 
 // 节点运行上下文
-export interface INodeContext<C extends INodeConfig, S extends INodeState, I extends INodeIO> {
+export interface INodeContext<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput> {
   config: C;
   updateConfig: (config: C) => void;
   state: S;
@@ -73,10 +83,13 @@ export interface INodeContext<C extends INodeConfig, S extends INodeState, I ext
 }
 
 // 节点运行日志格式化
-export type INodeLogFormatter<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> = (config: C, state: S, log: INodeRunLog<I, O>) => { input: string, output: string };
+export type INodeLogFormatter<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> = (config: C, state: S, log: INodeRunLog<I, O>) => { input: string, output: string };
 
 // 节点类型抽象
-export interface INodeType<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+export interface INodeType<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> {
+  configSchema: z.ZodSchema<C>;
+  inputSchema: z.ZodSchema<I>;
+  outputSchema: z.ZodSchema<O>;
   id: string;
   name: string;
   description: string;
@@ -90,10 +103,10 @@ export interface INodeType<C extends INodeConfig, S extends INodeState, I extend
 // 节点抽象
 export interface INode {
   id: string;
-  type: INodeType<INodeConfig, INodeState, INodeIO, INodeIO>;
+  type: INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>;
   config: INodeConfig;
   state: INodeState;
-  runState: INodeStateRun<INodeIO, INodeIO>;
+  runState: INodeStateRun<INodeInput, INodeOutput>;
 }
 
 // 连接点抽象
@@ -139,12 +152,12 @@ interface IEdgeRun extends IEdge {
 
 // 运行流
 export async function runFlow(
-  flowInput: INodeIO,
+  flowInput: INodeInput,
   nodeList: INode[],
   edgeList: IEdge[],
   updateNodeConfig: (nodeId: string, config: INodeConfig) => void,
   updateNodeState: (nodeId: string, state: INodeState) => void,
-  updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => void,
+  updateNodeRunState: (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => void,
   startTime = Date.now()
 ) {
   let startNodeId = '';
@@ -273,7 +286,7 @@ export async function runFlow(
 }
 
 // 节点 UI 上下文
-interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeInput, O extends INodeOutput> {
   config: C;
   state: S;
   runState: INodeStateRun<I, O>;
@@ -282,7 +295,7 @@ interface IUseNodeUIContext<C extends INodeConfig, S extends INodeState, I exten
 }
 
 // 节点 UI 上下文 Helper 函数
-export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
+export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I extends INodeInput, O extends INodeOutput>(
   props: INodeProps<C, S, I, O>
 ): IUseNodeUIContext<C, S, I, O> {
   const { updateNodeData } = useReactFlow();
@@ -456,13 +469,19 @@ function loadFlow(
 }
 
 // 子流节点类型
-export interface IFlowNodeInput extends INodeIO {
-  input: INodeIO;
-}
-export interface IFlowNodeOutput extends INodeIO {
-  output: INodeIO;
-}
-export interface IFlowNodeConfig extends INodeConfig { }
+export const FlowNodeInputSchema = NodeInputSchema.extend({
+  input: NodeInputSchema,
+});
+export type IFlowNodeInput = z.infer<typeof FlowNodeInputSchema>;
+
+export const FlowNodeOutputSchema = NodeOutputSchema.extend({
+  output: NodeOutputSchema,
+});
+export type IFlowNodeOutput = z.infer<typeof FlowNodeOutputSchema>;
+
+export const FlowNodeConfigSchema = NodeConfigSchema.extend({});
+export type IFlowNodeConfig = z.infer<typeof FlowNodeConfigSchema>;
+
 export interface IFlowNodeState extends INodeState {
   type: IFlowNodeType;
   runNodes: INode[];

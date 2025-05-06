@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
-import { INodeConfig, INodeIO, INodeRunLog, INodeState, INodeStateRun, INodeType } from "@/lib/flow/flow";
+import { INodeConfig, INodeInput, INodeOutput, INodeRunLog, INodeState, INodeStateRun, INodeType } from "@/lib/flow/flow";
 import { useMemo } from "react";
 
-interface NodeRunLogDetailProps<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO> {
+interface NodeRunLogDetailProps<C extends INodeConfig, S extends INodeState, I extends INodeInput, O extends INodeOutput> {
   nodeType: INodeType<C, S, I, O>;
   config: C;
   state: S;
@@ -10,7 +10,7 @@ interface NodeRunLogDetailProps<C extends INodeConfig, S extends INodeState, I e
 }
 
 
-export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(
+export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeState, I extends INodeInput, O extends INodeOutput>(
   { nodeType, config, state, runState }: NodeRunLogDetailProps<C, S, I, O>
 ) {
   const logFormatter = useMemo(() => nodeType.logFormatter || ((_config: C, _state: S, log: INodeRunLog<I, O>) => {

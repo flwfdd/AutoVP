@@ -1,15 +1,26 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeProps, INodeType, useNodeUIContext, IBaseNodeState, INodeContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
+import { z } from "zod";
 
-interface IDisplayNodeInput extends INodeIO {
-  value: any;
-}
-interface IDisplayNodeOutput extends INodeIO { }
-interface IDisplayNodeConfig extends INodeConfig { }
-interface IDisplayNodeState extends INodeState { }
+const DisplayNodeInputSchema = BaseNodeInputSchema.extend({
+  value: z.any(),
+});
+type IDisplayNodeInput = z.infer<typeof DisplayNodeInputSchema>;
+
+const DisplayNodeOutputSchema = BaseNodeOutputSchema.extend({});
+type IDisplayNodeOutput = z.infer<typeof DisplayNodeOutputSchema>;
+
+const DisplayNodeConfigSchema = BaseNodeConfigSchema.extend({});
+type IDisplayNodeConfig = z.infer<typeof DisplayNodeConfigSchema>;
+
+interface IDisplayNodeState extends IBaseNodeState { }
+
 export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, IDisplayNodeInput, IDisplayNodeOutput> = {
+  configSchema: DisplayNodeConfigSchema,
+  inputSchema: DisplayNodeInputSchema,
+  outputSchema: DisplayNodeOutputSchema,
   id: 'display',
   name: 'Display',
   description: 'Display node displays the output.',

@@ -49,6 +49,7 @@ function TimelineLogRight({ log, tickMs, onLogClick }: TimelineLogRightProps) {
                 style={{
                   left: `${startPx}px`,
                   width: `${widthPx}px`,
+                  opacity: Math.pow(0.75, log.depth)
                 }}
               />
             </TooltipTrigger>

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
@@ -10,20 +10,28 @@ import {
 import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
 import BaseNode from './base/BaseNode';
+import { z } from "zod";
 
-interface IJavaScriptNodeInput extends INodeIO {
-  [key: string]: any
-}
-interface IJavaScriptNodeOutput extends INodeIO {
-  output: any;
-}
-interface IJavaScriptNodeConfig extends INodeConfig {
-  params: { id: string, name: string }[];
-  code: string;
-}
+const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
+type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
+
+const JavaScriptNodeOutputSchema = BaseNodeOutputSchema.extend({
+  output: z.any(),
+});
+type IJavaScriptNodeOutput = z.infer<typeof JavaScriptNodeOutputSchema>;
+
+const JavaScriptNodeConfigSchema = BaseNodeConfigSchema.extend({
+  params: z.array(z.object({ id: z.string(), name: z.string() })),
+  code: z.string(),
+});
+type IJavaScriptNodeConfig = z.infer<typeof JavaScriptNodeConfigSchema>;
+
 interface IJavaScriptNodeState extends INodeState { }
 
 export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
+  configSchema: JavaScriptNodeConfigSchema,
+  inputSchema: JavaScriptNodeInputSchema,
+  outputSchema: JavaScriptNodeOutputSchema,
   id: 'javascript',
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',

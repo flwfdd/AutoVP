@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { INode, INodeConfig, INodeIO, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INode, INodeConfig, INodeInput, INodeOutput, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -100,7 +100,7 @@ function EditNodeDialog<C extends INodeConfig>(
   );
 }
 
-function BaseNode<C extends INodeConfig, S extends INodeState, I extends INodeIO, O extends INodeIO>(props: INodeProps<C, S, I, O>) {
+function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput>(props: INodeProps<C, S, I, O>) {
   const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
@@ -10,20 +10,28 @@ import {
 import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
 import BaseNode from './base/BaseNode';
+import { z } from 'zod';
 
-interface IBranchNodeInput extends INodeIO {
-  input: any;
-}
-interface IBranchNodeOutput extends INodeIO {
-  [key: string]: any;
-}
-interface IBranchNodeConfig extends INodeConfig {
-  code: string;
-  branches: { id: string, name: string }[];
-}
+const BranchNodeInputSchema = BaseNodeInputSchema.extend({
+  input: z.any(),
+});
+type IBranchNodeInput = z.infer<typeof BranchNodeInputSchema>;
+
+const BranchNodeOutputSchema = BaseNodeOutputSchema.catchall(z.any());
+type IBranchNodeOutput = z.infer<typeof BranchNodeOutputSchema>;
+
+const BranchNodeConfigSchema = BaseNodeConfigSchema.extend({
+  code: z.string(),
+  branches: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+type IBranchNodeConfig = z.infer<typeof BranchNodeConfigSchema>;
+
 interface IBranchNodeState extends INodeState { }
 
 export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput> = {
+  configSchema: BranchNodeConfigSchema,
+  inputSchema: BranchNodeInputSchema,
+  outputSchema: BranchNodeOutputSchema,
   id: 'branch',
   name: 'Branch',
   description: 'Branch node outputs based on the condition.\nCondition code example for branches A & B:\n1. `return a`: send input to A\n2. `return [a, b]`: send input to A & B\n3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',

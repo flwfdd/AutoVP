@@ -1,18 +1,29 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import BaseNode from './base/BaseNode';
-interface ITextNodeInput extends INodeIO { }
-interface ITextNodeOutput extends INodeIO {
-  text: string;
-}
-interface ITextNodeConfig extends INodeConfig {
-  text: string;
-}
-interface ITextNodeState extends INodeState { }
+import { z } from "zod";
+
+const TextNodeInputSchema = BaseNodeInputSchema.extend({});
+type ITextNodeInput = z.infer<typeof TextNodeInputSchema>;
+
+const TextNodeOutputSchema = BaseNodeOutputSchema.extend({
+  text: z.string(),
+});
+type ITextNodeOutput = z.infer<typeof TextNodeOutputSchema>;
+
+const TextNodeConfigSchema = BaseNodeConfigSchema.extend({
+  text: z.string(),
+});
+type ITextNodeConfig = z.infer<typeof TextNodeConfigSchema>;
+
+interface ITextNodeState extends IBaseNodeState { }
 
 export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput> = {
+  inputSchema: TextNodeInputSchema,
+  outputSchema: TextNodeOutputSchema,
+  configSchema: TextNodeConfigSchema,
   id: 'text',
   name: 'Text',
   description: 'Text node provides a text source.',

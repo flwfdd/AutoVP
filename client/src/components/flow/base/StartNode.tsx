@@ -1,22 +1,33 @@
 import { Textarea } from "@/components/ui/textarea";
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import BaseNode from './BaseNode';
-interface IStartNodeInput extends INodeIO { }
-interface IStartNodeOutput extends INodeIO {
-  value: any;
-}
-interface IStartNodeConfig extends INodeConfig { }
+import { z } from 'zod';
+
+const StartNodeInputSchema = BaseNodeInputSchema.extend({});
+type IStartNodeInput = z.infer<typeof StartNodeInputSchema>;
+
+const StartNodeOutputSchema = BaseNodeOutputSchema.extend({
+  value: z.any(),
+});
+type IStartNodeOutput = z.infer<typeof StartNodeOutputSchema>;
+
+const StartNodeConfigSchema = BaseNodeConfigSchema.extend({});
+type IStartNodeConfig = z.infer<typeof StartNodeConfigSchema>;
+
 interface IStartNodeState extends INodeState {
   value: any;
 }
 
 export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartNodeInput, IStartNodeOutput> = {
+  inputSchema: StartNodeInputSchema,
+  outputSchema: StartNodeOutputSchema,
+  configSchema: StartNodeConfigSchema,
   id: 'start',
   name: 'Start',
   description: 'Start node is the only starting node of the flow.',
-  defaultConfig: { name: 'Start', description: '', text: '' },
+  defaultConfig: { name: 'Start', description: '' },
   defaultState: { value: '' },
   ui: StartNodeUI,
   async run(context: INodeContext<IStartNodeConfig, IStartNodeState, IStartNodeInput>): Promise<IStartNodeOutput> {

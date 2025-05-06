@@ -1,6 +1,7 @@
-import { INodeConfig, INodeContext, INodeIO, INodeProps, INodeState, INodeType } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import BaseNode from './base/BaseNode';
+import { z } from 'zod';
 // 初始化OpenAI
 // const openai = new OpenAI({
 //   baseURL: '',
@@ -17,18 +18,25 @@ const fakeLLM = async (prompt: string) => {
   }
 }
 
+const LLMNodeInputSchema = BaseNodeInputSchema.extend({
+  prompt: z.string(),
+});
+type ILLMNodeInput = z.infer<typeof LLMNodeInputSchema>;
 
-interface ILLMNodeInput extends INodeIO {
-  [key: string]: any
-}
-interface ILLMNodeOutput extends INodeIO {
-  [key: string]: any
-}
-interface ILLMNodeConfig extends INodeConfig {
-}
-interface ILLMNodeState extends INodeState { }
+const LLMNodeOutputSchema = BaseNodeOutputSchema.extend({
+  output: z.string(),
+});
+type ILLMNodeOutput = z.infer<typeof LLMNodeOutputSchema>;
+
+const LLMNodeConfigSchema = BaseNodeConfigSchema.extend({});
+type ILLMNodeConfig = z.infer<typeof LLMNodeConfigSchema>;
+
+interface ILLMNodeState extends IBaseNodeState { }
 
 export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput, ILLMNodeOutput> = {
+  configSchema: LLMNodeConfigSchema,
+  inputSchema: LLMNodeInputSchema,
+  outputSchema: LLMNodeOutputSchema,
   id: 'llm',
   name: 'LLM',
   description: 'LLM node runs Large Language Models.',

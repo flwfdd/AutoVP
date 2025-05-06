@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Moon, Pencil, Sun, SunMoon, Torus, Trash2 } from "lucide-react";
+import { Moon, Pencil, Sun, SunMoon, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -48,7 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
-import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeIO, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import TimelineLog from "@/components/flow/log/TimelineLog";
@@ -175,7 +175,7 @@ function Flow() {
     type: nodeTypeMap[node.type as string],
     config: node.data.config as INodeConfig,
     state: node.data.state as INodeState,
-    runState: node.data.runState as INodeStateRun<INodeIO, INodeIO>,
+    runState: node.data.runState as INodeStateRun<INodeInput, INodeOutput>,
   }), [nodeTypeMap]);
 
   // 将边转换为运行时边
@@ -221,7 +221,7 @@ function Flow() {
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
     const updateConfig = (nodeId: string, config: INodeConfig) => updateNodeData(nodeId, { config: structuredClone(config) });
     const updateState = (nodeId: string, state: INodeState) => updateNodeData(nodeId, { state: structuredClone(state) });
-    const updateRunState = (nodeId: string, runState: INodeStateRun<INodeIO, INodeIO>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
+    const updateRunState = (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => updateNodeData(nodeId, { runState: structuredClone(runState) });
 
     runFlow({}, iNodes, iEdges, updateConfig, updateState, updateRunState)
       .then(() => {
