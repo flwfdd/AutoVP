@@ -50,7 +50,8 @@ export function newFlowNodeType(id: string, name: string, description: string, n
 
   flowNodeType.defaultState = {
     type: flowNodeType,
-    runNodes: []
+    runNodes: [],
+    highlight: false,
   } as IFlowNodeState;
 
   return flowNodeType as IFlowNodeType;

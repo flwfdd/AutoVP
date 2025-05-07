@@ -11,10 +11,6 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 const INDENT_PX = 20; // 每层缩进
 const TICK_PX = 30; // 时间刻度
 
-interface TimelineLogProps {
-  nodes: INode[];
-}
-
 interface TimelineLogRightProps {
   log: TimelineLog; // 节点
   tickMs: number; // 时间刻度
@@ -154,24 +150,31 @@ interface TimelineLog {
   key: string
   node: INode
   depth: number
+  parent: TimelineLog | null
   children: TimelineLog[]
   expanded: boolean
   show: boolean
 }
 
-export default function TimelineLog({ nodes }: TimelineLogProps) {
+interface TimelineLogProps {
+  nodes: INode[];
+  highlightNode: (nodeId: string) => void;
+}
+
+export default function TimelineLog({ nodes, highlightNode }: TimelineLogProps) {
   const [tickMs, setTickMs] = useState(100);
-  const [selectedNode, setSelectedNode] = useState<INode | null>(null);
+  const [selectedLog, setSelectedLog] = useState<TimelineLog | null>(null);
   const [timelineLogs, setTimelineLogs] = useState<TimelineLog[]>([]);
   const [maxEndTime, setMaxEndTime] = useState(0);
 
   useMemo(() => {
     const logs: TimelineLog[] = [];
-    const dfs = (node: INode, key: string, depth: number) => {
+    const dfs = (node: INode, key: string, depth: number, parent: TimelineLog | null) => {
       const log: TimelineLog = {
         key: key + node.id,
         node: node,
         depth: depth,
+        parent: parent,
         children: [],
         expanded: false,
         show: false,
@@ -183,13 +186,13 @@ export default function TimelineLog({ nodes }: TimelineLogProps) {
       if (log.node.type.id.startsWith('flow_')) {
         const state = node.state as IFlowNodeState
         state.runNodes.filter(node => node.runState.logs.length).sort((a, b) => a.runState.logs[0].startMs - b.runState.logs[0].startMs).forEach((node) => {
-          log.children.push(dfs(node, log.key, depth + 1));
+          log.children.push(dfs(node, log.key, depth + 1, log));
         })
       }
       return log;
     }
     nodes.filter(node => node.runState.logs.length).sort((a, b) => a.runState.logs[0].startMs - b.runState.logs[0].startMs).forEach((node) => {
-      const log = dfs(node, '', 0);
+      const log = dfs(node, '', 0, null);
       log.show = true;
     })
     setTimelineLogs(logs);
@@ -201,7 +204,7 @@ export default function TimelineLog({ nodes }: TimelineLogProps) {
 
   // 节点点击处理
   const handleLogClick = (log: TimelineLog) => {
-    setSelectedNode(log.node);
+    setSelectedLog(log);
   };
 
   // 展开/折叠节点
@@ -246,6 +249,13 @@ export default function TimelineLog({ nodes }: TimelineLogProps) {
     }
     timelineLogs.forEach(dfs);
     setTimelineLogs([...timelineLogs]);
+  };
+
+  // 高亮节点 需要对顶级节点进行高亮
+  const handleHighlight = (log: TimelineLog) => {
+    while (log.parent) log = log.parent;
+    highlightNode(log.node.id);
+    setSelectedLog(null);
   };
 
   return (
@@ -332,19 +342,27 @@ export default function TimelineLog({ nodes }: TimelineLogProps) {
           </ScrollArea>
 
           {/* 节点详情对话框 */}
-          < Dialog open={selectedNode !== null
-          } onOpenChange={(open) => !open && setSelectedNode(null)}>
+          < Dialog open={selectedLog !== null
+          } onOpenChange={(open) => !open && setSelectedLog(null)}>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{selectedNode?.config.name} Run Log</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-sm">{selectedLog?.node.type.name}</Badge>
+                  {selectedLog?.node.config.name}
+                </DialogTitle>
               </DialogHeader>
-              {selectedNode && (
-                <NodeRunLogDetail
-                  nodeType={selectedNode.type}
-                  config={selectedNode.config}
-                  state={selectedNode.state}
-                  runState={selectedNode.runState}
-                />
+              {selectedLog && (
+                <div className="flex flex-col gap-2">
+                  <Button variant="outline" onClick={() => handleHighlight(selectedLog)}>
+                    Highlight
+                  </Button>
+                  <NodeRunLogDetail
+                    nodeType={selectedLog.node.type}
+                    config={selectedLog.node.config}
+                    state={selectedLog.node.state}
+                    runState={selectedLog.node.runState}
+                  />
+                </div>
               )}
             </DialogContent>
           </Dialog >

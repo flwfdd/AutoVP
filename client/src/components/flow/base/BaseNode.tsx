@@ -16,12 +16,13 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INode, INodeConfig, INodeInput, INodeOutput, INodeProps, INodeRunLog, INodeState, INodeStateRun, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LabelHandle from './LabelHandle';
 import NodeRunLogDetail from "../log/NodeRunLogDetail";
+import { cn } from "@/lib/utils";
 
 
 interface EditNodeDialogProps<C extends INodeConfig> {
@@ -104,7 +105,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
-  const { config, state, runState, setConfig } = useNodeUIContext(props);
+  const { config, state, runState, setConfig, setState } = useNodeUIContext(props);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -118,7 +119,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
 
   return (
     <div>
-      <Card className="focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60" tabIndex={-1}>
+      <Card className={cn("focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60", state.highlight && "ring-2 ring-orange-600 animate-pulse")} tabIndex={-1}>
         <CardHeader className="flex items-center justify-between p-2">
           <div className="flex items-center gap-1 min-w-0">
             <Tooltip>

@@ -48,7 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
-import { defaultNodeRunState, dumpDSL, IEdge, IFlow, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import TimelineLog from "@/components/flow/log/TimelineLog";
@@ -362,6 +362,27 @@ function Flow() {
     setDeletingFlowType(null);
   }, [deletingFlowType]);
 
+  const highlightNode = useCallback((nodeId: string) => {
+    // 关闭Log Dialog
+    setIsRunLogDialogOpen(false);
+    // 设置高亮
+    updateNodeData(nodeId, (node) => ({
+      state: {
+        ...(node.data.state as INodeState),
+        highlight: true,
+      },
+    }));
+    // 5秒后取消高亮
+    setTimeout(() => {
+      updateNodeData(nodeId, (node) => ({
+        state: {
+          ...(node.data.state as INodeState),
+          highlight: false,
+        },
+      }));
+    }, 5000);
+  }, [updateNodeData]);
+
   const saveEditingFlow = useCallback(() => {
     if (!editingFlow) return;
     setFlowNodeTypes(prevTypes => prevTypes.map(ft => {
@@ -521,6 +542,16 @@ function Flow() {
               ID: {editingFlowType?.id}
             </DialogDescription>
           </DialogHeader>
+          {editingFlowType && (
+            <div className="grid grid-cols-2 items-center gap-4">
+              <Button variant="outline" onClick={() => handleEditFlow(editingFlowType)}>
+                <Pencil /> Edit
+              </Button>
+              <Button variant="outline" onClick={() => handleOpenDeleteFlowDialog(editingFlowType)}>
+                <Trash2 /> Delete
+              </Button>
+            </div>
+          )}
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="flow-name" className="text-right">
@@ -544,16 +575,6 @@ function Flow() {
                 className="col-span-3"
               />
             </div>
-            {editingFlowType && (
-              <div className="grid grid-cols-2 items-center gap-4">
-                <Button variant="outline" onClick={() => handleEditFlow(editingFlowType)}>
-                  <Pencil /> Edit
-                </Button>
-                <Button variant="outline" onClick={() => handleOpenDeleteFlowDialog(editingFlowType)}>
-                  <Trash2 /> Delete
-                </Button>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setIsEditFlowDialogOpen(false)}>Cancel</Button>
@@ -584,6 +605,7 @@ function Flow() {
         isLogDialogOpen={isRunLogDialogOpen}
         setIsLogDialogOpen={setIsRunLogDialogOpen}
         nodes={nodes.map(node => toINode(node, true, false))}
+        highlightNode={highlightNode}
       ></LogDialog>
 
     </div>
@@ -594,9 +616,10 @@ interface LogDialogProps {
   isLogDialogOpen: boolean
   setIsLogDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
   nodes: INode[]
+  highlightNode: (nodeId: string) => void
 }
 
-function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes }: LogDialogProps) {
+function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }: LogDialogProps) {
   return (
     <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
       <DialogContent className="min-w-[90vw] min-h-[90vh] max-w-[90vw] max-h-[90vh]">
@@ -607,7 +630,7 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes }: LogDialogProp
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 h-[calc(90vh-120px)]">
-          <TimelineLog nodes={nodes} />
+          <TimelineLog nodes={nodes} highlightNode={highlightNode} />
         </div>
       </DialogContent>
     </Dialog>

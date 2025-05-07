@@ -24,7 +24,9 @@ export const NodeConfigSchema = BaseNodeConfigSchema.catchall(z.any());
 export type INodeConfig = z.infer<typeof NodeConfigSchema>;
 
 // 节点非持久化状态抽象
-export interface IBaseNodeState { }
+export interface IBaseNodeState {
+  highlight: boolean;
+}
 export interface INodeState extends IBaseNodeState {
   [key: string]: any;
 }
