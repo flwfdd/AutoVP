@@ -1,0 +1,35 @@
+FROM python:3.12-alpine
+
+# System environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MPLBACKEND=Agg
+
+# Install build dependencies for Python packages, then Python libraries, then remove build deps
+RUN apk add --no-cache --virtual .build-deps \
+    build-base \
+    pkgconfig \
+    freetype-dev \
+    libpng-dev \
+    openblas-dev \
+    # It's also good practice to have runtime deps available if pip packages link against them
+    # during build, but the primary issue here is runtime.
+    && pip install --no-cache-dir \
+    requests \
+    matplotlib \
+    numpy \
+    && apk del .build-deps
+
+# Install tools for user/group management and C++ standard library
+RUN apk add --no-cache shadow libstdc++
+
+# Create a non-root user and group for running the application
+RUN groupadd -r appgroup && useradd --no-log-init -r -g appgroup -d /app -s /sbin/nologin appuser
+
+# Create app directory and set ownership
+RUN mkdir /app && chown appuser:appgroup /app
+
+WORKDIR /app
+
+# Switch to non-root user
+USER appuser
