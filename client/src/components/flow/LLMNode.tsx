@@ -1,7 +1,7 @@
 import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
-import BaseNode from './base/BaseNode';
 import { z } from 'zod';
+import BaseNode from './base/BaseNode';
 // 初始化OpenAI
 // const openai = new OpenAI({
 //   baseURL: '',
@@ -41,7 +41,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
   name: 'LLM',
   description: 'LLM node runs Large Language Models.',
   defaultConfig: { name: 'New LLM', description: '' },
-  defaultState: {},
+  defaultState: { highlight: false },
   ui: LLMNodeUI,
   async run(context: INodeContext<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
     // const response = await openai.chat.completions.create({

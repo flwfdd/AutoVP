@@ -49,8 +49,13 @@ export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeS
               </Badge>
             </div>
             <div className="flex gap-4">
-              <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.input}</pre>
-              <pre className="flex-1 text-sm  overflow-auto whitespace-pre-wrap">{log.output}</pre>
+              <pre className="flex-1 text-sm whitespace-pre-wrap break-all">{log.input}</pre>
+              <pre className="flex-1 text-sm whitespace-pre-wrap break-all">
+                <div>{log.output}</div>
+                {log.error && (
+                  <div className="text-red-600">{log.error}</div>
+                )}
+              </pre>
             </div>
           </div>
         ))

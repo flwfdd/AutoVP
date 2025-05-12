@@ -6,8 +6,9 @@ import logging
 from contextlib import asynccontextmanager
 
 import docker
-from docker.errors import APIError, ContainerError, ImageNotFound, NotFound
-from fastapi import FastAPI, HTTPException, Body
+from docker.errors import APIError, ImageNotFound, NotFound
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # --- Configuration ---
@@ -55,6 +56,15 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown...")
 
 app = FastAPI(lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True, # Allows cookies to be included in cross-origin requests
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # --- Helper Function to Run Code in Docker ---
 async def run_code_in_docker(user_code: str) -> ExecutionResult:
@@ -165,12 +175,3 @@ async def execute_code_endpoint(payload: CodeInput):
     except Exception as e:
         logger.error(f"Unhandled exception in execute_code_endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
-
-# --- How to Run ---
-# 1. Build the Docker image for execution: `docker build -t py-executor-env .`
-# 2. Run this FastAPI app: `uvicorn main:app --reload` (for development)
-# 3. Send a POST request to http://localhost:8000/execute
-#    Example using curl:
-#    curl -X POST "http://localhost:8000/execute" \
-#         -H "Content-Type: application/json" \
-#         -d '{"code": "import requests\nprint(f\"Requests version: {requests.__version__}\")\nimport matplotlib\nprint(f\"Matplotlib version: {matplotlib.__version__}\")\nprint(f\"Matplotlib backend: {matplotlib.get_backend()}\")\n\n# Example of saving a plot (file not retrieved by this version)\n# import matplotlib.pyplot as plt\n# import numpy as np\n# plt.plot(np.random.rand(5))\n# plt.savefig(\\\"my_plot.png\\\") \n# print(\\\"Plot saved to my_plot.png in container\\\")"}'

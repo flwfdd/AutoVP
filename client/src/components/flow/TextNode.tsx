@@ -1,9 +1,9 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeRunLog, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
-import BaseNode from './base/BaseNode';
 import { z } from "zod";
+import BaseNode from './base/BaseNode';
 
 const TextNodeInputSchema = BaseNodeInputSchema.extend({});
 type ITextNodeInput = z.infer<typeof TextNodeInputSchema>;
@@ -28,10 +28,11 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
   name: 'Text',
   description: 'Text node provides a text source.',
   defaultConfig: { name: 'New Text', description: '', text: '' },
-  defaultState: {},
+  defaultState: { highlight: false },
   logFormatter: (_config: ITextNodeConfig, _state: ITextNodeState, log: INodeRunLog<ITextNodeInput, ITextNodeOutput>) => ({
     input: 'No input',
-    output: log.output?.text ?? ''
+    output: log.output?.text ?? '',
+    error: log.error ?? ''
   }),
   ui: TextNodeUI,
   async run(context: INodeContext<ITextNodeConfig, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {

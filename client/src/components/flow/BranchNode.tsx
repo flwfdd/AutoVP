@@ -9,8 +9,8 @@ import {
 } from '@xyflow/react';
 import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
-import BaseNode from './base/BaseNode';
 import { z } from 'zod';
+import BaseNode from './base/BaseNode';
 
 const BranchNodeInputSchema = BaseNodeInputSchema.extend({
   input: z.any(),
@@ -36,7 +36,7 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
   name: 'Branch',
   description: 'Branch node outputs based on the condition.\nCondition code example for branches A & B:\n1. `return a`: send input to A\n2. `return [a, b]`: send input to A & B\n3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',
   defaultConfig: { name: 'New Branch', description: '', code: '', branches: [] },
-  defaultState: {},
+  defaultState: { highlight: false },
   logFormatter: ((config: IBranchNodeConfig, _state: INodeState, log: INodeRunLog<IBranchNodeInput, IBranchNodeOutput>) => {
     return {
       ...log,
@@ -46,6 +46,7 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
         acc[config.branches?.find(branch => branch.id === key)?.name || key] = JSON.stringify(value, null, 2);
         return acc;
       }, {}), null, 2),
+      error: log.error || ''
     };
   }),
   ui: BranchNodeUI,

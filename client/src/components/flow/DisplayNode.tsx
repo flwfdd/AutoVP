@@ -1,8 +1,8 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeProps, INodeType, useNodeUIContext, IBaseNodeState, INodeContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
-import BaseNode from './base/BaseNode';
 import { z } from "zod";
+import BaseNode from './base/BaseNode';
 
 const DisplayNodeInputSchema = BaseNodeInputSchema.extend({
   value: z.any(),
@@ -28,7 +28,7 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
     name: 'New Display',
     description: '',
   },
-  defaultState: {},
+  defaultState: { highlight: false },
   ui: DisplayNodeUI,
   async run(_context: INodeContext<IDisplayNodeConfig, IDisplayNodeState, IDisplayNodeInput>): Promise<IDisplayNodeOutput> {
     return {};
@@ -53,7 +53,7 @@ function DisplayNodeUI(props: INodeProps<IDisplayNodeConfig, IDisplayNodeState, 
         placeholder="Empty"
         value={JSON.stringify(runState.input.value, null, 2)}
         readOnly
-        className='nowheel nodrag'
+        className='nowheel nodrag max-h-[50vh]'
       />
     </BaseNode>
   );

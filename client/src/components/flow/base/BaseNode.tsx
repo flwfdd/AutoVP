@@ -13,16 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { cn } from "@/lib/utils";
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import LabelHandle from './LabelHandle';
 import NodeRunLogDetail from "../log/NodeRunLogDetail";
-import { cn } from "@/lib/utils";
+import LabelHandle from './LabelHandle';
 
 
 interface EditNodeDialogProps<C extends INodeConfig> {
@@ -158,7 +159,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
                   {runState?.status === 'error' && <CircleAlert className="h-4 w-4 text-red-600" />}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-[600px]">
+              <DialogContent className="min-w-[80vw]">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Badge variant="secondary" className="text-sm">{nodeType.name}</Badge>
@@ -168,14 +169,14 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
                     {config.description}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
+                <ScrollArea className="h-[80vh]">
                   <NodeRunLogDetail
                     nodeType={nodeType}
                     config={config}
                     state={state}
                     runState={runState}
                   />
-                </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>
@@ -211,7 +212,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
             />
           ))}
       </Card>
-    </div>
+    </div >
   );
 }
 

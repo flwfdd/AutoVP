@@ -2,8 +2,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
-import BaseNode from './BaseNode';
 import { z } from 'zod';
+import BaseNode from './BaseNode';
 
 const StartNodeInputSchema = BaseNodeInputSchema.extend({});
 type IStartNodeInput = z.infer<typeof StartNodeInputSchema>;
@@ -28,7 +28,7 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
   name: 'Start',
   description: 'Start node is the only starting node of the flow.',
   defaultConfig: { name: 'Start', description: '' },
-  defaultState: { value: '' },
+  defaultState: { highlight: false, value: '' },
   ui: StartNodeUI,
   async run(context: INodeContext<IStartNodeConfig, IStartNodeState, IStartNodeInput>): Promise<IStartNodeOutput> {
     if (context.input === undefined) {

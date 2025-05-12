@@ -12,18 +12,20 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Moon, Pencil, Sun, SunMoon, Trash2 } from "lucide-react";
+import { EllipsisVertical, Moon, Sun, SunMoon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
 import { EndNodeType } from "@/components/flow/base/EndNode";
+import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
-import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
+import TimelineLog from "@/components/flow/log/TimelineLog";
+import { PythonNodeType } from '@/components/flow/PythonNode';
 import { TextNodeType } from '@/components/flow/TextNode';
 import { useTheme } from "@/components/theme-provider";
 import {
@@ -45,16 +47,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
-import TimelineLog from "@/components/flow/log/TimelineLog";
 
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, LLMNodeType, BranchNodeType];
+const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 // 初始化节点和边
@@ -124,9 +126,8 @@ function Flow() {
 
   // 对话框
   const [isEditFlowDialogOpen, setIsEditFlowDialogOpen] = useState(false);
-  const [editingFlowType, setEditingFlowType] = useState<IFlowNodeType | null>(null);
-  const [editFlowName, setEditFlowName] = useState('');
-  const [editFlowDescription, setEditFlowDescription] = useState('');
+  const [editingFlowInfoType, setEditingFlowInfoType] = useState<IFlowNodeType | null>(null);
+  const [editFlowInfo, setEditFlowInfo] = useState<{ name: string, description: string }>({ name: '', description: '' });
 
   const [isDeleteFlowDialogOpen, setIsDeleteFlowDialogOpen] = useState(false);
   const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
@@ -321,36 +322,34 @@ function Flow() {
   }, [setNodes, setEdges, fitView]);
 
 
-  const handleOpenEditFlowDialog = useCallback((flowType: IFlowNodeType) => {
-    setEditingFlowType(flowType);
-    setEditFlowName(flowType.name);
-    setEditFlowDescription(flowType.description);
+  const handleOpenEditFlowInfoDialog = useCallback((flowType: IFlowNodeType) => {
+    setEditingFlowInfoType(flowType);
+    setEditFlowInfo({ name: flowType.name, description: flowType.description });
     setIsEditFlowDialogOpen(true);
-  }, []);
+  }, [setEditingFlowInfoType, setEditFlowInfo, setIsEditFlowDialogOpen]);
 
   const handleSaveEditFlowInfo = useCallback(() => {
-    if (!editingFlowType) return;
+    if (!editingFlowInfoType) return;
     setFlowNodeTypes(prevTypes =>
       prevTypes.map(ft => {
-        if (ft.id === editingFlowType.id) {
-          ft.name = editFlowName;
-          ft.description = editFlowDescription;
+        if (ft.id === editingFlowInfoType.id) {
+          ft.name = editFlowInfo.name;
+          ft.description = editFlowInfo.description;
         }
         return ft;
       })
     );
     setIsEditFlowDialogOpen(false);
-    setEditingFlowType(null);
-    toast.success(`Flow updated.`);
-  }, [editingFlowType, editFlowName, editFlowDescription]);
+    setEditingFlowInfoType(null);
+    toast.success(`Flow info updated.`);
+  }, [editingFlowInfoType, editFlowInfo, setFlowNodeTypes, setIsEditFlowDialogOpen, setEditingFlowInfoType]);
 
   const handleOpenDeleteFlowDialog = useCallback((flowType: IFlowNodeType) => {
     setDeletingFlowType(flowType);
     setIsDeleteFlowDialogOpen(true);
-  }, []);
+  }, [setDeletingFlowType, setIsDeleteFlowDialogOpen]);
 
   const handleConfirmDeleteFlow = useCallback(() => {
-    setIsEditFlowDialogOpen(false);
     if (!deletingFlowType) return;
     setFlowNodeTypes(prevTypes =>
       prevTypes.filter(ft => ft.id !== deletingFlowType.id)
@@ -358,9 +357,9 @@ function Flow() {
     // TODO: Also remove nodes of this type from the canvas? Optional, might be complex.
     // setNodes(nds => nds.filter(n => n.type !== deletingFlowType.id));
     setIsDeleteFlowDialogOpen(false);
-    toast.warning(`Flow type "${deletingFlowType.name}" deleted.`);
+    toast.warning(`Flow "${deletingFlowType.name}" deleted.`);
     setDeletingFlowType(null);
-  }, [deletingFlowType]);
+  }, [deletingFlowType, setFlowNodeTypes, setIsDeleteFlowDialogOpen, setDeletingFlowType]);
 
   const highlightNode = useCallback((nodeId: string) => {
     // 关闭Log Dialog
@@ -381,7 +380,7 @@ function Flow() {
         },
       }));
     }, 5000);
-  }, [updateNodeData]);
+  }, [setIsRunLogDialogOpen, updateNodeData]);
 
   const saveEditingFlow = useCallback(() => {
     if (!editingFlow) return;
@@ -501,9 +500,18 @@ function Flow() {
                     >
                       <span className="truncate">{nodeType.name}</span>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEditFlowDialog(nodeType)}>
-                      <Pencil />
-                    </Button>
+                    <DropdownMenu modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <EllipsisVertical />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => handleOpenEditFlowInfoDialog(nodeType)}>Edit Info</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditFlow(nodeType)}>Edit Flow</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenDeleteFlowDialog(nodeType)}>Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
             </div>
@@ -539,19 +547,9 @@ function Flow() {
           <DialogHeader>
             <DialogTitle>Edit Flow</DialogTitle>
             <DialogDescription>
-              ID: {editingFlowType?.id}
+              ID: {editingFlowInfoType?.id}
             </DialogDescription>
           </DialogHeader>
-          {editingFlowType && (
-            <div className="grid grid-cols-2 items-center gap-4">
-              <Button variant="outline" onClick={() => handleEditFlow(editingFlowType)}>
-                <Pencil /> Edit
-              </Button>
-              <Button variant="outline" onClick={() => handleOpenDeleteFlowDialog(editingFlowType)}>
-                <Trash2 /> Delete
-              </Button>
-            </div>
-          )}
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="flow-name" className="text-right">
@@ -559,8 +557,8 @@ function Flow() {
               </Label>
               <Input
                 id="flow-name"
-                value={editFlowName}
-                onChange={(e) => setEditFlowName(e.target.value)}
+                value={editFlowInfo.name}
+                onChange={(e) => setEditFlowInfo({ ...editFlowInfo, name: e.target.value })}
                 className="col-span-3"
               />
             </div>
@@ -570,8 +568,8 @@ function Flow() {
               </Label>
               <Input
                 id="flow-description"
-                value={editFlowDescription}
-                onChange={(e) => setEditFlowDescription(e.target.value)}
+                value={editFlowInfo.description}
+                onChange={(e) => setEditFlowInfo({ ...editFlowInfo, description: e.target.value })}
                 className="col-span-3"
               />
             </div>

@@ -1,8 +1,8 @@
 import { Textarea } from "@/components/ui/textarea";
 import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
-import BaseNode from './BaseNode';
 import { z } from 'zod';
+import BaseNode from './BaseNode';
 
 const EndNodeInputSchema = BaseNodeInputSchema.extend({
   value: z.any(),
@@ -28,7 +28,7 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
     name: 'End',
     description: '',
   },
-  defaultState: {},
+  defaultState: { highlight: false },
   ui: EndNodeUI,
   async run(context: INodeContext<IEndNodeConfig, IEndNodeState, IEndNodeInput>): Promise<IEndNodeOutput> {
     return context.input.value;
@@ -53,7 +53,7 @@ function EndNodeUI(props: INodeProps<IEndNodeConfig, IEndNodeState, IEndNodeInpu
         placeholder="Empty"
         value={JSON.stringify(runState.input.value, null, 2)}
         readOnly
-        className='nowheel nodrag'
+        className='nowheel nodrag max-h-[50vh]'
       />
     </BaseNode>
   );

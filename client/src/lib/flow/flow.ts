@@ -37,6 +37,7 @@ export interface INodeRunLog<I extends IBaseNodeInput, O extends IBaseNodeOutput
   endMs?: number;
   input: I;
   output?: O;
+  error?: any;
 }
 
 // 节点运行时状态抽象
@@ -85,7 +86,7 @@ export interface INodeContext<C extends IBaseNodeConfig, S extends IBaseNodeStat
 }
 
 // 节点运行日志格式化
-export type INodeLogFormatter<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> = (config: C, state: S, log: INodeRunLog<I, O>) => { input: string, output: string };
+export type INodeLogFormatter<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> = (config: C, state: S, log: INodeRunLog<I, O>) => { input: string, output: string, error: string };
 
 // 节点类型抽象
 export interface INodeType<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput> {
@@ -217,6 +218,12 @@ export async function runFlow(
     for (const node of readyNodes) {
       // 设置节点状态为运行中
       node.runState.status = 'running';
+      let log = {
+        startMs: Date.now() - startTime,
+        input: {},
+        output: {},
+        error: null,
+      } as INodeRunLog<INodeInput, INodeOutput>;
       try {
         // 从边获取输入
         const input = node.inputEdges.reduce<Record<string, any>>((acc, edge) => {
@@ -226,10 +233,7 @@ export async function runFlow(
         node.runState.input = input;
         // 运行前callback
         console.log('input', node.config.name, node.id, input);
-        node.runState.logs.push({
-          startMs: Date.now() - startTime,
-          input,
-        });
+        log.input = input;
         // 更新节点状态
         updateNodeRunState(node.id, node.runState);
         // 执行节点
@@ -246,14 +250,9 @@ export async function runFlow(
           input: node.id === startNodeId ? flowInput : node.runState.input,
           flowStack: flowStack,
         });
-        // 运行后callback
+        // 运行成功callback
         console.log('output', node.config.name, node.id, output);
-        let log = node.runState.logs.pop();
-        if (log) {
-          log.endMs = Date.now() - startTime;
-          log.output = output;
-          node.runState.logs.push(log);
-        }
+        log.output = output;
         // 将输出写入边
         node.outputEdges.forEach((edge) => {
           // 输出为undefined表示不走这条边
@@ -275,8 +274,13 @@ export async function runFlow(
         // 设置节点状态为失败
         node.runState.status = 'error';
         node.runState.error = e;
+        // 运行失败callback
         console.error('error', node.config.name, node.id, e);
+        log.error = e.message;
       } finally {
+        // 运行后callback
+        log.endMs = Date.now() - startTime;
+        node.runState.logs.push(log);
         updateNodeRunState(node.id, node.runState);
         // 如果节点运行失败，则抛出错误
         if (node.runState.status === 'error') {

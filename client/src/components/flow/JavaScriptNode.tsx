@@ -9,8 +9,8 @@ import {
 } from '@xyflow/react';
 import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
-import BaseNode from './base/BaseNode';
 import { z } from "zod";
+import BaseNode from './base/BaseNode';
 
 const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
 type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
@@ -36,7 +36,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
-  defaultState: {},
+  defaultState: { highlight: false },
   logFormatter: ((config: IJavaScriptNodeConfig, _state: INodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
     return {
       ...log,
@@ -46,6 +46,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
         return acc;
       }, {}), null, 2),
       output: JSON.stringify(log.output?.output, null, 2),
+      error: log.error || ''
     };
   }),
   ui: JavaScriptNodeUI,
@@ -102,7 +103,7 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
 
   // 添加输入参数 id作为输入map的key不会变
   const onAddParam = useCallback(() => {
-    const newParams = [...config.params, { id: generateId(), name: '' }];
+    const newParams = [...config.params, { id: generateId(), name: 'var' + (config.params.length + 1) }];
     setConfig({ params: newParams });
   }, [config, setConfig]);
 
