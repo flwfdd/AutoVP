@@ -1,0 +1,144 @@
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import configGlobal from '@/lib/config';
+import { llm } from '@/lib/llm';
+import { Editor } from '@monaco-editor/react';
+import { Loader, PanelLeftClose, PanelRightClose } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+
+interface CodeEditorDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  code: string;
+  onCodeChange: (newCode: string) => void;
+  language: 'javascript' | 'python';
+  title: string;
+  systemPrompt: string;
+}
+
+function CodeEditorDialog({
+  isOpen,
+  onClose,
+  code,
+  onCodeChange,
+  language,
+  title,
+  systemPrompt,
+}: CodeEditorDialogProps) {
+  const [internalCode, setInternalCode] = useState(code);
+  const [prompt, setPrompt] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isShowAiPanel, setIsShowAiPanel] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setInternalCode(code);
+    }
+  }, [code, isOpen]);
+
+  const handleSave = () => {
+    onCodeChange(internalCode);
+    onClose();
+  };
+
+  const handleAiAction = async () => {
+    if (!prompt.trim()) return;
+    setIsAiLoading(true);
+    try {
+      const response = await llm(configGlobal.codeEditorModel, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `${prompt}\n\nCurrent Code:\`\`\`${language}\n${internalCode}\`\`\`` },
+      ]);
+      if (response) {
+        const codeBlockMatch = response.match(/```(?:[a-zA-Z]+)?\n([\s\S]*?)\n```/);
+        setInternalCode(codeBlockMatch && codeBlockMatch[1] ? codeBlockMatch[1].trim() : response.trim());
+      } else {
+        toast.error('AI returned an empty response.');
+      }
+    } catch (error: any) {
+      toast.error('Error during AI code generation: ' + error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="min-w-full max-w-full min-h-full max-h-full rounded-md flex flex-col p-4 [&>button]:hidden">
+        <DialogHeader>
+          <div className="flex justify-between items-center">
+            <DialogTitle>{title}</DialogTitle>
+            <Button variant="ghost" size="icon" onClick={() => setIsShowAiPanel(!isShowAiPanel)}>
+              {isShowAiPanel ? <PanelRightClose /> : <PanelLeftClose />}
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col overflow-hidden border rounded-md">
+            <Editor
+              height="100%"
+              language={language}
+              value={internalCode}
+              onChange={(value) => setInternalCode(value || '')}
+              theme="vs-dark"
+              options={{
+                automaticLayout: true,
+              }}
+            />
+          </div>
+
+          {isShowAiPanel && (
+            <div className="w-1/3 flex flex-col gap-4">
+              <div className="font-medium text-center">AI Code Assistant</div>
+              <div className="flex-1 overflow-hidden">
+                <Textarea
+                  placeholder={`Describe what you want to generate or change in the code...`}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="resize-none text-sm h-full"
+                  disabled={isAiLoading}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={handleAiAction}
+                disabled={isAiLoading || !prompt.trim()}
+              >
+                {isAiLoading ? (
+                  <>
+                    <Loader className="animate-spin" /> Generating...
+                  </>
+                ) : (
+                  `Generate`
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isAiLoading}>
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={handleSave} disabled={isAiLoading}>
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default CodeEditorDialog; 

@@ -57,7 +57,7 @@ import { generateId } from '@/lib/utils';
 import { PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, ImageNodeType];
+const basicNodeTypes = [TextNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 // 初始化节点和边

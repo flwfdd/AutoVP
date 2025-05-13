@@ -243,16 +243,6 @@ async def proxy_openai_chat_completions(
         )
         return response.model_dump()
 
-    except OpenAIError as e:
-        logger.error(f"OpenAI API error: {e} - Status: {e.http_status} - Body: {e.json_body}")
-        error_detail = {"type": "openai_error", "message": str(e)}
-        if hasattr(e, 'json_body') and e.json_body and 'error' in e.json_body:
-            error_detail["openai_error_detail"] = e.json_body['error']
-        
-        raise HTTPException(
-            status_code=e.http_status if e.http_status else 500,
-            detail=error_detail,
-        )
     except Exception as e:
         logger.error(f"Unexpected error in OpenAI proxy: {str(e)}", exc_info=True)
         raise HTTPException(

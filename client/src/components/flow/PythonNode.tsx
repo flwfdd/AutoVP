@@ -9,10 +9,12 @@ import {
   Position
 } from '@xyflow/react';
 import axios, { AxiosError } from 'axios';
-import { XCircle } from "lucide-react";
-import React, { useCallback } from 'react';
+import { Pencil, XCircle } from "lucide-react";
+import React, { useCallback, useMemo, useState } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
+import CodeEditorDialog from './editor/CodeEditorDialog';
+
 const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
@@ -89,18 +91,18 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
   }),
   ui: PythonNodeUI,
   async run(context: INodeContext<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput>): Promise<IPythonNodeOutput> {
-    let paramsCode = 'import json\n';
+    let params = [];
 
     for (const param of context.config.params) {
       if (context.input[param.id] === undefined) {
         throw new Error(`Input ${param.name} is undefined.`);
       }
-      paramsCode += `${param.name} = ${JSON.stringify(context.input[param.id])}\n`;
+      params.push(`${param.name} = ${JSON.stringify(context.input[param.id])}`);
     }
 
-    const userCode = 'def main():\n' + context.config.code.replace(/^/gm, '  ');
+    const mainCode = `def main(${params.join(',')}):\n${context.config.code.replace(/^/gm, '  ')}`;
 
-    const fullCode = `${paramsCode}\n${userCode}\nprint(json.dumps(main(),ensure_ascii=False))`;
+    const fullCode = `import json\n${mainCode}\nprint(json.dumps(main(),ensure_ascii=False))`;
     console.log("Executing Python code:\n", fullCode);
 
     const result = await runPythonCode(fullCode);
@@ -150,9 +152,32 @@ const ParamLabel = React.memo(({
 
 function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput, IPythonNodeOutput>) {
   const { config, setConfig } = useNodeUIContext(props);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const systemPrompt = useMemo(() => {
+    return `You are an expert python programmer. Your task is to help the user with their code.
+The user's code is placed in a main function with the params.
+For example, if there is a param called "name", and we want to output the result of "Hello, {name}!", the user's code should be:
+\`\`\`python
+return f"Hello, {name}!"
+\`\`\`
+Then the real code is:
+\`\`\`python
+def main(name):
+  return f"Hello, {name}!"
+\`\`\`
+However, you **should not** output the main function, just output the code in it directly.
+The 3rd-party packages you can use are: requests, numpy, matplotlib.
+If you want to output a image, you should convert the image to a url or base64 src then return it.
+Available params are: ${config.params.map(param => param.name).join(', ')}.`;
+  }, [config.params]);
 
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setConfig({ code: evt.target.value });
+  }, [setConfig]);
+
+  const handleEditorCodeSave = useCallback((newCode: string) => {
+    setConfig({ code: newCode });
   }, [setConfig]);
 
   const onAddParam = useCallback(() => {
@@ -205,7 +230,19 @@ function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPy
         onChange={onCodeChange}
         className='nowheel nodrag'
       />
+      <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
+        <Pencil className="mr-2 h-4 w-4" /> Open Editor
+      </Button>
       <Separator className='my-2' />
+      <CodeEditorDialog
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        code={config.code}
+        onCodeChange={handleEditorCodeSave}
+        language="python"
+        title="Edit Python Code"
+        systemPrompt={systemPrompt}
+      />
     </BaseNode>
   );
 }

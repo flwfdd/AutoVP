@@ -169,7 +169,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
                     {config.description}
                   </DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="h-[80vh]">
+                <ScrollArea className="max-h-[80vh]">
                   <NodeRunLogDetail
                     nodeType={nodeType}
                     config={config}

@@ -7,10 +7,11 @@ import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
 } from '@xyflow/react';
-import { XCircle } from "lucide-react";
-import React, { useCallback } from 'react';
+import { Pencil, XCircle } from "lucide-react";
+import React, { useCallback, useMemo, useState } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
+import CodeEditorDialog from './editor/CodeEditorDialog';
 
 const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
 type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
@@ -95,10 +96,26 @@ const ParamLabel = React.memo(({
 
 function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
   const { config, setConfig } = useNodeUIContext(props);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  // 编辑代码更新data
+  const systemPrompt = useMemo(() => {
+    return `You are an expert JavaScript programmer. Your task is to help the user with their code.
+The user's code will be executed directly within an async function. 
+Any parameters defined for the node can be used directly as variables within the code.
+The value returned by the code will be the output of the node.
+For example, if there is a parameter "name", and we want to output the result of "Hello, {name}!", the user's code should be:
+\`\`\`javascript
+return \`Hello, \${name}!\`;
+\`\`\`
+Available params are: ${config.params.map(param => param.name).join(', ')} .`;
+  }, [config.params]);
+
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setConfig({ code: evt.target.value });
+  }, [setConfig]);
+
+  const handleEditorCodeSave = useCallback((newCode: string) => {
+    setConfig({ code: newCode });
   }, [setConfig]);
 
   // 添加输入参数 id作为输入map的key不会变
@@ -154,7 +171,19 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
         onChange={onCodeChange}
         className='nowheel nodrag'
       />
+      <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
+        <Pencil className="mr-2 h-4 w-4" /> Open Editor
+      </Button>
       <Separator className='my-2' />
+      <CodeEditorDialog
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        code={config.code}
+        onCodeChange={handleEditorCodeSave}
+        language="javascript"
+        title="Edit JavaScript Code"
+        systemPrompt={systemPrompt}
+      />
     </BaseNode>
   );
 }

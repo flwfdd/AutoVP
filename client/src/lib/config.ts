@@ -3,8 +3,9 @@ const config = {
   llm: {
     baseURL: 'http://127.0.0.1:8000/openai',
     apiKey: '',
-    model: '',
+    models: ['moonshot-v1-chat'],
   },
+  codeEditorModel: 'moonshot-v1-chat',
 };
 
 export default config;
