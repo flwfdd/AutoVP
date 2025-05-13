@@ -1,22 +1,24 @@
+import config from '@/lib/config';
 import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
+import { OpenAI } from 'openai';
 import { z } from 'zod';
 import BaseNode from './base/BaseNode';
 // 初始化OpenAI
-// const openai = new OpenAI({
-//   baseURL: '',
-//   apiKey: '',
-//   dangerouslyAllowBrowser: true,
-// });
+const openai = new OpenAI({
+  baseURL: config.llm.baseURL,
+  apiKey: config.llm.apiKey,
+  dangerouslyAllowBrowser: true,
+});
 
-const fakeLLM = async (prompt: string) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return {
-    choices: [{
-      message: { content: 'Prompt: ' + prompt }
-    }]
-  }
-}
+// const fakeLLM = async (prompt: string) => {
+//   await new Promise(resolve => setTimeout(resolve, 1000));
+//   return {
+//     choices: [{
+//       message: { content: 'Prompt: ' + prompt }
+//     }]
+//   }
+// }
 
 const LLMNodeInputSchema = BaseNodeInputSchema.extend({
   prompt: z.string(),
@@ -44,15 +46,15 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
   defaultState: { highlight: false },
   ui: LLMNodeUI,
   async run(context: INodeContext<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput>): Promise<ILLMNodeOutput> {
-    // const response = await openai.chat.completions.create({
-    //   model: 'gpt-4.1-nano',
-    //   messages: [
-    //     { role: 'system', content: 'You are a helpful assistant.' },
-    //     { role: 'user', content: context.input.prompt },
-    //   ],
-    // });
-    const response = await fakeLLM(context.input.prompt);
-    return { output: response.choices[0].message.content };
+    const response = await openai.chat.completions.create({
+      model: config.llm.model,
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: context.input.prompt },
+      ],
+    });
+    // const response = await fakeLLM(context.input.prompt);
+    return { output: response.choices[0].message.content || '' };
   }
 };
 

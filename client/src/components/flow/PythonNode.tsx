@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import config from '@/lib/config';
 import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId } from '@/lib/utils';
 import {
@@ -12,7 +13,6 @@ import { XCircle } from "lucide-react";
 import React, { useCallback } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
-
 const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
@@ -38,7 +38,7 @@ interface ExecutionResult {
 
 async function runPythonCode(code: string): Promise<ExecutionResult> {
   try {
-    const response = await axios.post<ExecutionResult>('http://127.0.0.1:8000/python-runner', { code });
+    const response = await axios.post<ExecutionResult>(`${config.apiUrl}/python-runner`, { code });
     return response.data;
   } catch (e: any) {
     console.error("Error calling Python API:", e);

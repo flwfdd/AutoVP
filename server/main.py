@@ -4,6 +4,7 @@ import os
 import tempfile
 import logging
 from contextlib import asynccontextmanager
+from typing import List, Any
 
 import docker
 from docker.errors import APIError, ImageNotFound, NotFound
@@ -11,10 +12,22 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+import openai
+from openai import OpenAIError
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # --- Configuration ---
 DOCKER_IMAGE_NAME = "python-runner"  # Image built from Dockerfile
 EXECUTION_TIMEOUT_SECONDS = 20  # Max execution time for user code
 DOCKER_CONTAINER_USER = "appuser" # User inside the Docker container
+
+# OpenAI Configuration
+OPENAI_API_BASE_URL = os.getenv("OPENAI_API_BASE_URL")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +51,34 @@ class ExecutionResult(BaseModel):
     error: str | None = None
     duration_seconds: float | None = None
 
+# Pydantic models for OpenAI Chat Completions Proxy
+class OpenAIChatMessage(BaseModel):
+    role: str
+    content: str
+
+class OpenAIChatCompletionsRequest(BaseModel):
+    model: str = Field(..., example="moonshot-v1-chat")
+    messages: List[OpenAIChatMessage]
+    temperature: float | None = Field(default=0.7, example=0.7)
+    max_tokens: int | None = Field(default=None, example=256)
+
+class OpenAIUsage(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+class OpenAIChatChoice(BaseModel):
+    index: int
+    message: OpenAIChatMessage
+    finish_reason: str | None = None
+
+class OpenAIChatCompletionsResponse(BaseModel):
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: List[OpenAIChatChoice]
+    usage: OpenAIUsage | None = None
 
 # --- FastAPI Lifespan Management ---
 @asynccontextmanager
@@ -175,3 +216,46 @@ async def execute_code_endpoint(payload: CodeInput):
     except Exception as e:
         logger.error(f"Unhandled exception in execute_code_endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
+
+# --- OpenAI Proxy Endpoint ---
+@app.post("/openai/chat/completions", response_model=Any)
+async def proxy_openai_chat_completions(
+    payload: OpenAIChatCompletionsRequest
+):
+    """
+    Proxies requests to OpenAI's Chat Completions API.
+    You need to have the OPENAI_API_KEY environment variable set.
+    """
+    if not OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API key not configured on the server. Proxy is unavailable."
+        )
+
+    try:
+        client = openai.AsyncOpenAI(base_url=OPENAI_API_BASE_URL, api_key=OPENAI_API_KEY)
+        
+        response = await client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[msg.model_dump() for msg in payload.messages],
+            temperature=payload.temperature,
+            max_tokens=payload.max_tokens,
+        )
+        return response.model_dump()
+
+    except OpenAIError as e:
+        logger.error(f"OpenAI API error: {e} - Status: {e.http_status} - Body: {e.json_body}")
+        error_detail = {"type": "openai_error", "message": str(e)}
+        if hasattr(e, 'json_body') and e.json_body and 'error' in e.json_body:
+            error_detail["openai_error_detail"] = e.json_body['error']
+        
+        raise HTTPException(
+            status_code=e.http_status if e.http_status else 500,
+            detail=error_detail,
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in OpenAI proxy: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={"type": "server_error", "message": "An unexpected error occurred while proxying to OpenAI."}
+        )
