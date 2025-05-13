@@ -60,7 +60,7 @@ function StartNodeUI(props: INodeProps<IStartNodeConfig, IStartNodeState, IStart
         placeholder="Input text"
         value={state.value}
         onChange={onChange}
-        className='nowheel nodrag'
+        className='nowheel nodrag max-h-[50vh]'
       />
     </BaseNode>
   );

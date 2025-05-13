@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { EllipsisVertical, Moon, Sun, SunMoon } from "lucide-react";
+import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Moon, Plus, ScrollText, Sun, SunMoon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -22,6 +22,7 @@ import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
+import { ImageNodeType } from '@/components/flow/ImageNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
 import TimelineLog from "@/components/flow/log/TimelineLog";
@@ -53,10 +54,10 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
+import { PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
-
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType];
+const basicNodeTypes = [TextNodeType, DisplayNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, ImageNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 // 初始化节点和边
@@ -444,23 +445,29 @@ function Flow() {
           </div>
           <div className='space-y-2'>
             <Button className="w-full" onClick={handleRun}>
+              <PlayCircle />
               Run
             </Button>
-            <Button className="w-full" onClick={handleExport}>
-              Export
-            </Button>
             <Button className="w-full" onClick={handleImportClick}>
+              <FileUp />
               Import
             </Button>
+            <Button className="w-full" onClick={handleExport}>
+              <FileDown />
+              Export
+            </Button>
             <Button className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
+              <ScrollText />
               Run Logs
             </Button>
             {editingFlow ? (
               <Button className="w-full" onClick={handleBackToMainFlow}>
+                <ArrowLeft />
                 Back to Main Flow
               </Button>
             ) : (
               <Button className="w-full" onClick={handleRegisterFlow}>
+                <Plus />
                 Register Flow
               </Button>
             )}

@@ -106,7 +106,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
-  const { config, state, runState, setConfig, setState } = useNodeUIContext(props);
+  const { config, state, runState, setConfig } = useNodeUIContext(props);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
