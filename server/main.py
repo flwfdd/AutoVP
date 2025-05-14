@@ -1,4 +1,3 @@
-# main.py
 import asyncio
 import os
 import tempfile
@@ -13,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import openai
-from openai import OpenAIError
 
 from dotenv import load_dotenv
 
@@ -27,7 +25,7 @@ DOCKER_CONTAINER_USER = "appuser" # User inside the Docker container
 # OpenAI Configuration
 OPENAI_API_BASE_URL = os.getenv("OPENAI_API_BASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL")
+OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -57,10 +55,8 @@ class OpenAIChatMessage(BaseModel):
     content: str
 
 class OpenAIChatCompletionsRequest(BaseModel):
-    model: str = Field(..., example="moonshot-v1-chat")
+    model: str = Field(..., example=OPENAI_DEFAULT_MODEL)
     messages: List[OpenAIChatMessage]
-    temperature: float | None = Field(default=0.7, example=0.7)
-    max_tokens: int | None = Field(default=None, example=256)
 
 class OpenAIUsage(BaseModel):
     prompt_tokens: int
@@ -236,10 +232,9 @@ async def proxy_openai_chat_completions(
         client = openai.AsyncOpenAI(base_url=OPENAI_API_BASE_URL, api_key=OPENAI_API_KEY)
         
         response = await client.chat.completions.create(
-            model=OPENAI_MODEL,
+            model=payload.model or OPENAI_DEFAULT_MODEL,
             messages=[msg.model_dump() for msg in payload.messages],
-            temperature=payload.temperature,
-            max_tokens=payload.max_tokens,
+            max_tokens=64*1024,
         )
         return response.model_dump()
 

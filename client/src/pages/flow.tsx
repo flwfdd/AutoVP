@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sun, SunMoon } from "lucide-react";
+import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sparkles, Sun, SunMoon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -22,6 +22,7 @@ import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
+import AICopilotDialog from '@/components/flow/editor/AICopilotDialog';
 import MarkdownRenderer from "@/components/flow/editor/MarkdownRenderer";
 import { ImageNodeType } from '@/components/flow/ImageNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
@@ -55,7 +56,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import configGlobal from "@/lib/config";
-import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { llm } from "@/lib/llm";
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -139,6 +140,7 @@ function Flow() {
   const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
 
   const [isRunLogDialogOpen, setIsRunLogDialogOpen] = useState(false);
+  const [isAICopilotDialogOpen, setIsAICopilotDialogOpen] = useState(false);
 
   // 连接边
   const onConnect = useCallback(
@@ -259,11 +261,35 @@ function Flow() {
       });
   }, [nodes, edges, updateNodeData, toINode, toIEdge]);
 
-  // 导出流
-  const handleExport = useCallback(() => {
+  // 处理Flow AI Dialog
+  const handleOpenAICopilotDialog = useCallback(() => {
+    setIsAICopilotDialogOpen(true);
+  }, []);
+
+  const handleDSLUpdate = useCallback((dsl: IDSL) => {
+    try {
+      importDSL(dsl);
+      toast.success('流程已成功更新');
+    } catch (error: any) {
+      console.error("流程更新失败", error);
+      toast.error(`流程更新失败: ${error.message || '未知错误'}`);
+    }
+  }, [nodeTypeMap, setNodes, setEdges, setFlowNodeTypes, fromIDSLNode, fromIDSLEdge, fitView]);
+
+  // 导入流
+  const importDSL = useCallback((dsl: IDSL) => {
+    const { main, flowNodeTypes } = loadDSL(dsl, nodeTypeMap, newFlowNodeType);
+    setNodes(main.nodes.map(fromIDSLNode));
+    setEdges(main.edges.map(fromIDSLEdge));
+    setFlowNodeTypes(flowNodeTypes);
+    fitView();
+  }, [nodeTypeMap, setNodes, setEdges, setFlowNodeTypes, fromIDSLNode, fromIDSLEdge, fitView]);
+
+  // 获取当前流的DSL
+  const exportDSL = useCallback(() => {
     const iNodes = nodes.map((node) => toINode(node));
     const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
-    const flowDSL = dumpDSL({
+    return dumpDSL({
       main: {
         id: 'main',
         name: 'Main',
@@ -273,8 +299,12 @@ function Flow() {
       },
       flowNodeTypes: Object.values(flowNodeTypes),
     });
+  }, [nodes, edges, toINode, toIEdge, flowNodeTypes]);
+
+  // 导出流
+  const handleExport = useCallback(() => {
     // 导出为json
-    const flowDSLJSON = JSON.stringify(flowDSL, null, 2);
+    const flowDSLJSON = JSON.stringify(exportDSL(), null, 2);
     const blob = new Blob([flowDSLJSON], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -282,7 +312,7 @@ function Flow() {
     a.download = 'flow.json';
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, edges, toINode, toIEdge, flowNodeTypes]);
+  }, [exportDSL]);
 
   // 打开文件选择器
   const handleImportClick = useCallback(() => {
@@ -297,15 +327,8 @@ function Flow() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const dsl: IFlowDSL = JSON.parse(String(e.target?.result));
-        const { main, flowNodeTypes } = loadDSL(dsl, nodeTypeMap, newFlowNodeType);
-
-        // 设置节点和边
-        setNodes(main.nodes.map(fromIDSLNode));
-        setEdges(main.edges.map(fromIDSLEdge));
-        setFlowNodeTypes(flowNodeTypes);
-        fitView();
-
+        const dsl: IDSL = JSON.parse(String(e.target?.result));
+        importDSL(dsl);
         toast.success('Flow import success!');
       } catch (error: any) {
         console.error("Flow import error", error);
@@ -325,7 +348,7 @@ function Flow() {
       }
     };
     reader.readAsText(file);
-  }, [setNodes, setEdges, fitView]);
+  }, [importDSL]);
 
 
   const handleOpenEditFlowInfoDialog = useCallback((flowType: IFlowNodeType) => {
@@ -464,6 +487,10 @@ function Flow() {
             <Button variant="outline" className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
               <ScrollText />
               Run Logs
+            </Button>
+            <Button variant="outline" className="w-full" onClick={handleOpenAICopilotDialog}>
+              <Sparkles />
+              AI Copilot
             </Button>
             {editingFlow ? (
               <Button className="w-full" onClick={handleBackToMainFlow}>
@@ -618,6 +645,15 @@ function Flow() {
         nodes={nodes.map(node => toINode(node, true, false))}
         highlightNode={highlightNode}
       ></LogDialog>
+
+      <AICopilotDialog
+        isOpen={isAICopilotDialogOpen}
+        onClose={() => setIsAICopilotDialogOpen(false)}
+        DSL={exportDSL()}
+        onUpdateDSL={handleDSLUpdate}
+        nodeTypeMap={nodeTypeMap}
+        newFlowNodeType={newFlowNodeType}
+      />
 
     </div>
   );

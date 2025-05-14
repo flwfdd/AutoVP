@@ -475,6 +475,36 @@ function loadFlow(
     }
   }
 
+  // 检查节点ID是否重复
+  const nodeIds = new Set<string>();
+  const duplicateNodeIds = new Set<string>();
+  dsl.nodes.forEach(node => {
+    if (nodeIds.has(node.id)) {
+      duplicateNodeIds.add(node.id);
+    } else {
+      nodeIds.add(node.id);
+    }
+  });
+
+  if (duplicateNodeIds.size > 0) {
+    throw new Error(`Duplicate node IDs found: ${Array.from(duplicateNodeIds).join(', ')}`);
+  }
+
+  // 检查边ID是否重复
+  const edgeIds = new Set<string>();
+  const duplicateEdgeIds = new Set<string>();
+  dsl.edges.forEach(edge => {
+    if (edgeIds.has(edge.id)) {
+      duplicateEdgeIds.add(edge.id);
+    } else {
+      edgeIds.add(edge.id);
+    }
+  });
+
+  if (duplicateEdgeIds.size > 0) {
+    throw new Error(`Duplicate edge IDs found: ${Array.from(duplicateEdgeIds).join(', ')}`);
+  }
+
   const nodes = dsl.nodes.map((nodeDSL) => {
     const nodeType = nodeTypeMap[nodeDSL.type];
     if (!nodeType) {
@@ -504,6 +534,21 @@ function loadFlow(
     };
     return newNode;
   });
+
+  // 预先验证所有边的引用
+  for (const edgeDSL of dsl.edges) {
+    // 检查源节点是否存在
+    if (!nodeIds.has(edgeDSL.source.node)) {
+      throw new Error(`Edge "${edgeDSL.id}" references non-existent source node "${edgeDSL.source.node}".`);
+    }
+    // 检查目标节点是否存在
+    if (!nodeIds.has(edgeDSL.target.node)) {
+      throw new Error(`Edge "${edgeDSL.id}" references non-existent target node "${edgeDSL.target.node}".`);
+    }
+    // 当前我们先跳过key验证，因为在我们的系统中key可能是动态的
+    // 在未来，我们可以添加更严格的key验证，例如通过收集节点类型支持的输入/输出键
+    // 或者在节点类型中添加handler定义等方式
+  }
 
   const edges = dsl.edges.map((edgeDSL) => {
     const sourceNode = nodes.find(n => n.id === edgeDSL.source.node);

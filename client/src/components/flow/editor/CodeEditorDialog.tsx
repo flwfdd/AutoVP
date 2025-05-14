@@ -89,14 +89,10 @@ function CodeEditorDialog({
         <div className="flex-1 flex flex-row gap-2 overflow-hidden min-h-0">
           <div className="flex-1 flex flex-col overflow-hidden border rounded-md">
             <Editor
-              height="100%"
               language={language}
               value={internalCode}
               onChange={(value) => setInternalCode(value || '')}
               theme="vs-dark"
-              options={{
-                automaticLayout: true,
-              }}
             />
           </div>
 

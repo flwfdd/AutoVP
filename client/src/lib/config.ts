@@ -3,9 +3,9 @@ const config = {
   llm: {
     baseURL: 'http://127.0.0.1:8000/openai',
     apiKey: '',
-    models: ['moonshot-v1-chat'],
+    models: ['DeepSeek-V3', 'DeepSeek-R1', 'o4-mini', 'claude-3-7-sonnet-20250219'],
   },
-  codeEditorModel: 'moonshot-v1-chat',
+  codeEditorModel: 'DeepSeek-V3',
 };
 
 export default config;
