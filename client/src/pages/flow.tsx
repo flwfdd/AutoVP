@@ -710,7 +710,7 @@ ${logData}
 
   return (
     <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
-      <DialogContent className="min-w-[95vw] min-h-[90vh] max-w-[95vw] max-h-[90vh] flex flex-col p-4">
+      <DialogContent className="min-w-full min-h-full max-w-full max-h-full flex flex-col p-4">
         <DialogHeader className="shrink-0">
           <DialogTitle>Run Logs</DialogTitle>
           <DialogDescription>

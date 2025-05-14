@@ -203,7 +203,7 @@ ${dslError}
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-row gap-2 overflow-hidden min-h-0">
           <div className="flex-1 flex flex-col overflow-hidden border rounded-md">
             <Editor
               language="json"
@@ -214,8 +214,7 @@ ${dslError}
           </div>
 
           {isShowAiPanel && (
-            <div className="w-1/2 flex flex-col gap-2">
-              <div className="font-medium text-center">AI Copilot</div>
+            <div className="w-1/2 flex flex-col gap-2 px-2">
               <div className="flex-1 min-h-0 overflow-auto border rounded-md px-4 text-sm">
                 {response ? (
                   <MarkdownRenderer content={response} />
@@ -238,12 +237,13 @@ ${dslError}
                   <Button variant="outline" onClick={() => handleAiAction(true)}>
                     Fix with AI
                   </Button>
-                </div>}
+                </div>
+              }
               <Textarea
                 placeholder="Describe what you want to do with the flow..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="resize-none h-24"
+                className="resize-none min-w-0 h-24"
                 disabled={isAiLoading}
               />
               <Button

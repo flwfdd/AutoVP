@@ -172,6 +172,11 @@ export async function runFlow(
   const startTime = flowStack.length ? flowStack[0].startTime : Date.now();
   let startNodeId = '';
   let endNodeId = '';
+
+  // 用于终止所有运行中的节点
+  const abortController = new AbortController();
+  const signal = abortController.signal;
+
   // 节点列表
   const nodes = nodeList.reduce<Record<string, INodeRun>>((acc, node) => {
     if (node.type.id === 'start') {
@@ -208,120 +213,189 @@ export async function runFlow(
     updateNodeRunState(node.id, node.runState);
   });
 
-  // 初始化可执行节点列表为入度为0的节点
-  let readyNodes = Object.values(nodes).filter((node) => node.inputEdges.length === 0);
-  while (1) {
-    if (readyNodes.length === 0) {
-      break;
+  // 用于跟踪活跃的节点运行Promise
+  const activeNodeRuns = new Map<string, Promise<void>>();
+
+  // 执行单个节点的函数
+  const runNode = async (node: INodeRun): Promise<void> => {
+    if (signal.aborted) {
+      return; // 如果已经中止，不执行节点
     }
-    let newReadyNodes: INodeRun[] = [];
-    for (const node of readyNodes) {
-      // 设置节点状态为运行中
-      node.runState.status = 'running';
-      let log = {
-        startMs: Date.now() - startTime,
-        input: {},
-        output: {},
-        error: null,
-      } as INodeRunLog<INodeInput, INodeOutput>;
+
+    // 设置节点状态为运行中
+    node.runState.status = 'running';
+    let log = {
+      startMs: Date.now() - startTime,
+      input: {},
+      output: {},
+      error: null,
+    } as INodeRunLog<INodeInput, INodeOutput>;
+
+    try {
+      // 从边获取输入
+      const input = node.inputEdges.reduce<Record<string, any>>((acc, edge) => {
+        acc[edge.target.key] = edges[edge.id].value;
+        return acc;
+      }, {});
+      node.runState.input = input;
+
+      // 运行前callback
+      console.log('input', node.config.name, node.id, input);
+      log.input = input;
+
+      // 更新节点状态
+      updateNodeRunState(node.id, node.runState);
+
+      // 验证输入数据
       try {
-        // 从边获取输入
-        const input = node.inputEdges.reduce<Record<string, any>>((acc, edge) => {
-          acc[edge.target.key] = edges[edge.id].value;
-          return acc;
-        }, {});
-        node.runState.input = input;
-        // 运行前callback
-        console.log('input', node.config.name, node.id, input);
-        log.input = input;
-        // 更新节点状态
-        updateNodeRunState(node.id, node.runState);
-
-        // 验证输入数据
-        try {
-          node.type.inputSchema.parse(input);
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            console.error(`Input validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
-            throw new Error(`Invalid input for node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
-          } else {
-            throw error;
-          }
-        }
-
-        // 执行节点
-        const output = await node.type.run({
-          config: node.config,
-          updateConfig: (config: INodeConfig) => {
-            updateNodeConfig(node.id, config);
-          },
-          state: node.state,
-          updateState: (state: INodeState) => {
-            updateNodeState(node.id, state);
-          },
-          // 特殊处理开始节点
-          input: node.id === startNodeId ? flowInput : node.runState.input,
-          flowStack: flowStack,
-        });
-        // 运行成功callback
-        console.log('output', node.config.name, node.id, output);
-        log.output = output;
-
-        // 验证输出数据
-        try {
-          node.type.outputSchema.parse(output);
-        } catch (error) {
-          if (error instanceof z.ZodError) {
-            console.error(`Output validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
-            throw new Error(`Invalid output from node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
-          } else {
-            throw error;
-          }
-        }
-
-        // 将输出写入边
-        node.outputEdges.forEach((edge) => {
-          // 输出为undefined表示不走这条边
-          if (output[edge.source.key] === undefined) {
-            return;
-          }
-          edges[edge.id].value = output[edge.source.key];
-          // 更新目标节点等待数
-          const targetNode = nodes[edge.target.node.id];
-          targetNode.waitNum--;
-          if (targetNode.waitNum === 0 && !newReadyNodes.includes(targetNode)) {
-            newReadyNodes.push(targetNode);
-          }
-        });
-        // 设置节点状态为成功
-        node.runState.status = 'success';
-        node.runState.output = output;
-      } catch (e: any) {
-        // 设置节点状态为失败
-        node.runState.status = 'error';
-        node.runState.error = e;
-        // 运行失败callback
-        console.error('error', node.config.name, node.id, e);
-        log.error = e.message;
-      } finally {
-        // 运行后callback
-        log.endMs = Date.now() - startTime;
-        node.runState.logs.push(log);
-        updateNodeRunState(node.id, node.runState);
-        // 如果节点运行失败，则抛出错误
-        if (node.runState.status === 'error') {
-          throw new Error(`Error in ${node.config.name}: ${node.runState.error.message || node.runState.error}`);
+        node.type.inputSchema.parse(input);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          console.error(`Input validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
+          throw new Error(`Invalid input for node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+        } else {
+          throw error;
         }
       }
+
+      // 执行节点
+      const output = await node.type.run({
+        config: node.config,
+        updateConfig: (config: INodeConfig) => {
+          updateNodeConfig(node.id, config);
+        },
+        state: node.state,
+        updateState: (state: INodeState) => {
+          updateNodeState(node.id, state);
+        },
+        // 特殊处理开始节点
+        input: node.id === startNodeId ? flowInput : node.runState.input,
+        flowStack: flowStack,
+      });
+
+      // 检查是否已经中止
+      if (signal.aborted) {
+        throw new Error('Flow execution aborted');
+      }
+
+      // 运行成功callback
+      console.log('output', node.config.name, node.id, output);
+      log.output = output;
+
+      // 验证输出数据
+      try {
+        node.type.outputSchema.parse(output);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          console.error(`Output validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
+          throw new Error(`Invalid output from node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+        } else {
+          throw error;
+        }
+      }
+
+      // 设置节点状态为成功
+      node.runState.status = 'success';
+      node.runState.output = output;
+
+      // 更新运行日志和状态
+      log.endMs = Date.now() - startTime;
+      node.runState.logs.push(log);
+      updateNodeRunState(node.id, node.runState);
+
+      // 处理输出边和激活下游节点
+      await processOutputs(node, output);
+
+    } catch (e: any) {
+      // 设置节点状态为失败
+      node.runState.status = 'error';
+      node.runState.error = e;
+
+      // 更新运行日志和状态
+      log.endMs = Date.now() - startTime;
+      log.error = e.message;
+      node.runState.logs.push(log);
+      updateNodeRunState(node.id, node.runState);
+
+      // 运行失败callback
+      console.error('error', node.config.name, node.id, e);
+
+      // 中止所有运行中的节点
+      abortController.abort();
+
+      throw e; // 向上传播错误
+    } finally {
+      // 从活跃列表中移除
+      activeNodeRuns.delete(node.id);
     }
-    readyNodes = newReadyNodes;
-  }
+  };
 
-  if (nodes[endNodeId].runState.status !== 'success') {
-    throw new Error('End node is not success');
-  }
+  // 处理节点输出和激活下游节点
+  const processOutputs = async (node: INodeRun, output: INodeOutput): Promise<void> => {
+    const downstreamPromises: Promise<void>[] = [];
 
-  return nodes[endNodeId].runState.output;
+    node.outputEdges.forEach((edge) => {
+      // 输出为undefined表示不走这条边
+      if (output[edge.source.key] === undefined) {
+        return;
+      }
+
+      edges[edge.id].value = output[edge.source.key];
+      // 更新目标节点等待数
+      const targetNode = nodes[edge.target.node.id];
+      targetNode.waitNum--;
+
+      // 如果目标节点的所有输入都准备好了，开始执行该节点
+      if (targetNode.waitNum === 0 && !activeNodeRuns.has(targetNode.id)) {
+        const targetRun = runNode(targetNode);
+        activeNodeRuns.set(targetNode.id, targetRun);
+        downstreamPromises.push(targetRun);
+      }
+    });
+
+    // 等待所有新启动的下游节点完成
+    if (downstreamPromises.length > 0) {
+      await Promise.all(downstreamPromises);
+    }
+  };
+
+  try {
+    // 获取初始可执行节点（入度为0的节点）
+    const initialNodes = Object.values(nodes).filter((node) => node.inputEdges.length === 0);
+
+    // 并行启动所有初始节点
+    const initialPromises = initialNodes.map(node => {
+      const nodeRun = runNode(node);
+      activeNodeRuns.set(node.id, nodeRun);
+      return nodeRun;
+    });
+
+    // 等待所有初始节点及其级联的下游节点完成
+    await Promise.all(initialPromises);
+
+    // 检查终止节点是否成功完成
+    if (nodes[endNodeId].runState.status !== 'success') {
+      throw new Error('End node did not complete successfully');
+    }
+
+    return nodes[endNodeId].runState.output;
+
+  } catch (error) {
+    // 确保中止所有活跃节点
+    abortController.abort();
+
+    // 等待所有活跃节点结束
+    if (activeNodeRuns.size > 0) {
+      try {
+        await Promise.allSettled(Array.from(activeNodeRuns.values()));
+      } catch (e) {
+        // 忽略等待期间的错误
+      }
+    }
+
+    // 重新抛出原始错误
+    throw error;
+  }
 }
 
 // 节点 UI 上下文
