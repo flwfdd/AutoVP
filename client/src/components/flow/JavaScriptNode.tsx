@@ -7,7 +7,7 @@ import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
 } from '@xyflow/react';
-import { Pencil, XCircle } from "lucide-react";
+import { Code, XCircle } from "lucide-react";
 import React, { useCallback, useMemo, useState } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
@@ -17,13 +17,28 @@ const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
 type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
 
 const JavaScriptNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.any(),
+  output: z.any().describe('output of the code'),
 });
 type IJavaScriptNodeOutput = z.infer<typeof JavaScriptNodeOutputSchema>;
 
+const codeDescription = `
+The code will be executed directly within an async function. 
+Any parameters defined for the node can be used directly as variables within the code.
+The value returned by the code will be the output of the node.
+For example, if there is a parameter "name", and we want to output the result of "Hello, {name}!", the code should be:
+\`\`\`javascript
+return \`Hello, \${name}!\`;
+\`\`\`
+`;
+
 const JavaScriptNodeConfigSchema = BaseNodeConfigSchema.extend({
-  params: z.array(z.object({ id: z.string(), name: z.string() })),
-  code: z.string(),
+  params: z.array(
+    z.object({
+      id: z.string().describe('id of the param, corresponding to an input key'),
+      name: z.string().describe('name of the param, used in the code'),
+    })
+  ).describe('parameters to pass to the code'),
+  code: z.string().describe(codeDescription),
 });
 type IJavaScriptNodeConfig = z.infer<typeof JavaScriptNodeConfigSchema>;
 
@@ -100,13 +115,7 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
 
   const systemPrompt = useMemo(() => {
     return `You are an expert JavaScript programmer. Your task is to help the user with their code.
-The user's code will be executed directly within an async function. 
-Any parameters defined for the node can be used directly as variables within the code.
-The value returned by the code will be the output of the node.
-For example, if there is a parameter "name", and we want to output the result of "Hello, {name}!", the user's code should be:
-\`\`\`javascript
-return \`Hello, \${name}!\`;
-\`\`\`
+${codeDescription}
 Available params are: ${config.params.map(param => param.name).join(', ')} .`;
   }, [config.params]);
 
@@ -172,7 +181,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')} .`;
         className='nowheel nodrag'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
-        <Pencil className="mr-2 h-4 w-4" /> Open Editor
+        <Code /> Code Editor
       </Button>
       <Separator className='my-2' />
       <CodeEditorDialog

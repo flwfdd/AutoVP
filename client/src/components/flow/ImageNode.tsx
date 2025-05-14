@@ -4,7 +4,7 @@ import { z } from "zod";
 import BaseNode from './base/BaseNode';
 
 const ImageNodeInputSchema = BaseNodeInputSchema.extend({
-  src: z.string(), // Expects a string (URL or Base64) for the image source
+  src: z.string().describe('URL or Base64 source of the image'),
 });
 type IImageNodeInput = z.infer<typeof ImageNodeInputSchema>;
 

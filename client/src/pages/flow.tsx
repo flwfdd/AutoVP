@@ -56,9 +56,11 @@ import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, IN
 import { generateId } from '@/lib/utils';
 import { PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
+
 // 注册节点类型
 const basicNodeTypes = [TextNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
+
 
 // 初始化节点和边
 const initialNodes: Node[] = [
@@ -137,7 +139,7 @@ function Flow() {
 
   // 连接边
   const onConnect = useCallback(
-    (params: any) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
+    (params: any) => setEdges((eds) => addEdge({ ...params }, eds)),
     [setEdges],
   );
 
@@ -535,6 +537,7 @@ function Flow() {
         onDrop={onDrop}
         onDragOver={onDragOver}
         colorMode={isDarkMode ? 'dark' : 'light'}
+        defaultEdgeOptions={{ style: { strokeWidth: 3 }, animated: true }}
       >
         <Controls />
         <MiniMap />

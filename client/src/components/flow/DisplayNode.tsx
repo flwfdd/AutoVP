@@ -5,7 +5,7 @@ import { z } from "zod";
 import BaseNode from './base/BaseNode';
 
 const DisplayNodeInputSchema = BaseNodeInputSchema.extend({
-  value: z.any(),
+  value: z.any().describe('value to display'),
 });
 type IDisplayNodeInput = z.infer<typeof DisplayNodeInputSchema>;
 
@@ -23,7 +23,7 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
   outputSchema: DisplayNodeOutputSchema,
   id: 'display',
   name: 'Display',
-  description: 'Display node displays the output.',
+  description: 'Display node displays the output by JSON stringify.',
   defaultConfig: {
     name: 'New Display',
     description: '',

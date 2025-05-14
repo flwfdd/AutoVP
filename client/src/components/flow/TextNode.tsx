@@ -9,12 +9,12 @@ const TextNodeInputSchema = BaseNodeInputSchema.extend({});
 type ITextNodeInput = z.infer<typeof TextNodeInputSchema>;
 
 const TextNodeOutputSchema = BaseNodeOutputSchema.extend({
-  text: z.string(),
+  text: z.string().describe('text to output'),
 });
 type ITextNodeOutput = z.infer<typeof TextNodeOutputSchema>;
 
 const TextNodeConfigSchema = BaseNodeConfigSchema.extend({
-  text: z.string(),
+  text: z.string().describe('text to output'),
 });
 type ITextNodeConfig = z.infer<typeof TextNodeConfigSchema>;
 

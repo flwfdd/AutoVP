@@ -9,7 +9,7 @@ import {
   Position
 } from '@xyflow/react';
 import axios, { AxiosError } from 'axios';
-import { Pencil, XCircle } from "lucide-react";
+import { Code, XCircle } from "lucide-react";
 import React, { useCallback, useMemo, useState } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
@@ -19,13 +19,34 @@ const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
 const PythonNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.string(),
+  output: z.string().describe('output of the code'),
 });
 type IPythonNodeOutput = z.infer<typeof PythonNodeOutputSchema>;
 
+const codeDescription = `
+The code is placed in a main function with the params.
+For example, if there is a param called "name", and we want to output the result of "Hello, {name}!", the code should be:
+\`\`\`python
+return f"Hello, {name}!"
+\`\`\`
+Then the real code is:
+\`\`\`python
+def main(name):
+  return f"Hello, {name}!"
+\`\`\`
+However, you **should not** output the main function, just output the code in it directly.
+The 3rd-party packages you can use are: requests, numpy, matplotlib.
+If you want to output an image, you should convert the image to a url or base64 src then return it.
+`;
+
 const PythonNodeConfigSchema = BaseNodeConfigSchema.extend({
-  params: z.array(z.object({ id: z.string(), name: z.string() })),
-  code: z.string(),
+  params: z.array(
+    z.object({
+      id: z.string().describe('id of the param, corresponding to an input key'),
+      name: z.string().describe('name of the param, used in the code'),
+    })
+  ).describe('parameters to pass to the code'),
+  code: z.string().describe(codeDescription),
 });
 type IPythonNodeConfig = z.infer<typeof PythonNodeConfigSchema>;
 
@@ -156,19 +177,7 @@ function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPy
 
   const systemPrompt = useMemo(() => {
     return `You are an expert python programmer. Your task is to help the user with their code.
-The user's code is placed in a main function with the params.
-For example, if there is a param called "name", and we want to output the result of "Hello, {name}!", the user's code should be:
-\`\`\`python
-return f"Hello, {name}!"
-\`\`\`
-Then the real code is:
-\`\`\`python
-def main(name):
-  return f"Hello, {name}!"
-\`\`\`
-However, you **should not** output the main function, just output the code in it directly.
-The 3rd-party packages you can use are: requests, numpy, matplotlib.
-If you want to output a image, you should convert the image to a url or base64 src then return it.
+${codeDescription}
 Available params are: ${config.params.map(param => param.name).join(', ')}.`;
   }, [config.params]);
 
@@ -231,7 +240,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')}.`;
         className='nowheel nodrag'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
-        <Pencil className="mr-2 h-4 w-4" /> Open Editor
+        <Code /> Code Editor
       </Button>
       <Separator className='my-2' />
       <CodeEditorDialog

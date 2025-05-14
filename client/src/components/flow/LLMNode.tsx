@@ -15,17 +15,17 @@ import { z } from 'zod';
 import BaseNode from './base/BaseNode';
 
 const LLMNodeInputSchema = BaseNodeInputSchema.extend({
-  prompt: z.string(),
+  prompt: z.string().describe('prompt to send to the LLM'),
 });
 type ILLMNodeInput = z.infer<typeof LLMNodeInputSchema>;
 
 const LLMNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.string(),
+  output: z.string().describe('output of the LLM'),
 });
 type ILLMNodeOutput = z.infer<typeof LLMNodeOutputSchema>;
 
 const LLMNodeConfigSchema = BaseNodeConfigSchema.extend({
-  model: z.string(),
+  model: z.string().describe('model to use, available models: ' + configGlobal.llm.models.join(', ')),
 });
 type ILLMNodeConfig = z.infer<typeof LLMNodeConfigSchema>;
 

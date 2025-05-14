@@ -16,8 +16,8 @@ export type INodeOutput = z.infer<typeof NodeOutputSchema>;
 
 // 节点持久化数据抽象
 export const BaseNodeConfigSchema = z.object({
-  name: z.string(),
-  description: z.string(),
+  name: z.string().describe('name of the node'),
+  description: z.string().describe('description of the node'),
 });
 export type IBaseNodeConfig = z.infer<typeof BaseNodeConfigSchema>;
 export const NodeConfigSchema = BaseNodeConfigSchema.catchall(z.any());

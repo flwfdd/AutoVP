@@ -7,21 +7,54 @@ import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
 } from '@xyflow/react';
-import { XCircle } from "lucide-react";
-import React, { useCallback } from 'react';
+import { Code, XCircle } from "lucide-react";
+import React, { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import BaseNode from './base/BaseNode';
+import CodeEditorDialog from './editor/CodeEditorDialog';
 
 const BranchNodeInputSchema = BaseNodeInputSchema.extend({
-  input: z.any(),
+  input: z.any().describe('input to the branch node'),
 });
 type IBranchNodeInput = z.infer<typeof BranchNodeInputSchema>;
 
 const BranchNodeOutputSchema = BaseNodeOutputSchema.catchall(z.any());
 type IBranchNodeOutput = z.infer<typeof BranchNodeOutputSchema>;
 
+const codePrompt = `
+Branch nodes can distribute input to different output ports based on conditions. You can use JavaScript code to control the flow.
+
+The code will be executed within an async function. You can directly use the following variables:
+- input: The input data passed to the branch node
+- All branch names as variables (e.g., if a branch is named "branchA", you can use the branchA variable directly)
+
+The return value determines the output flow:
+1. Return a single branch name: e.g., \`return branchA;\` - sends the input data to that branch
+2. Return an array of branch names: e.g., \`return [branchA, branchB];\` - sends the input data to multiple branches
+3. Return an object: e.g., \`return {branchA: input.x, branchB: 'some data'};\` - sends different data to different branches
+
+Examples:
+\`\`\`javascript
+// Simple conditional branch
+if (input % 2 === 0) {
+  return branchA;
+} else {
+  return branchB;
+}
+
+// Send to multiple branches
+return [branchA, branchB];
+
+// Send different content to different branches
+return {
+  branchA: input.value,
+  branchB: input.value % 2 === 0 ? 'even' : 'odd'
+};
+\`\`\`
+`;
+
 const BranchNodeConfigSchema = BaseNodeConfigSchema.extend({
-  code: z.string(),
+  code: z.string().describe(codePrompt),
   branches: z.array(z.object({ id: z.string(), name: z.string() })),
 });
 type IBranchNodeConfig = z.infer<typeof BranchNodeConfigSchema>;
@@ -111,10 +144,21 @@ const BranchLabel = React.memo(({
 
 function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput>) {
   const { config, setConfig } = useNodeUIContext(props);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const systemPrompt = useMemo(() => {
+    return `You are a professional JavaScript programmer. Your task is to help the user write branch condition logic code.
+${codePrompt}
+Available branch names: ${config.branches.map(branch => branch.name).join(', ')}`;
+  }, [config.branches]);
 
   // 编辑代码更新data
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     setConfig({ code: evt.target.value });
+  }, [setConfig]);
+
+  const handleEditorCodeSave = useCallback((newCode: string) => {
+    setConfig({ code: newCode });
   }, [setConfig]);
 
   // 添加输入参数 id作为输入map的key不会变
@@ -165,10 +209,22 @@ function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBr
         onChange={onCodeChange}
         className='nowheel nodrag'
       />
+      <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
+        <Code /> Code Editor
+      </Button>
       <Separator className='my-2' />
       <Button variant="outline" className='w-full' onClick={() => onAddBranch()}>
         Add Branch
       </Button>
+      <CodeEditorDialog
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        code={config.code}
+        onCodeChange={handleEditorCodeSave}
+        language="javascript"
+        title="Edit Branch Condition Code"
+        systemPrompt={systemPrompt}
+      />
     </BaseNode>
   );
 }

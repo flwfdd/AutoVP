@@ -14,6 +14,7 @@ import { Editor } from '@monaco-editor/react';
 import { Loader, PanelLeftClose, PanelRightClose } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface CodeEditorDialogProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ function CodeEditorDialog({
   const [prompt, setPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isShowAiPanel, setIsShowAiPanel] = useState(true);
-
+  const [response, setResponse] = useState('');
   useEffect(() => {
     if (isOpen) {
       setInternalCode(code);
@@ -59,12 +60,14 @@ function CodeEditorDialog({
         { role: 'user', content: `${prompt}\n\nCurrent Code:\`\`\`${language}\n${internalCode}\`\`\`` },
       ]);
       if (response) {
+        setResponse(response);
         const codeBlockMatch = response.match(/```(?:[a-zA-Z]+)?\n([\s\S]*?)\n```/);
         setInternalCode(codeBlockMatch && codeBlockMatch[1] ? codeBlockMatch[1].trim() : response.trim());
       } else {
         toast.error('AI returned an empty response.');
       }
     } catch (error: any) {
+      setResponse(error.message);
       toast.error('Error during AI code generation: ' + error.message);
     } finally {
       setIsAiLoading(false);
@@ -98,14 +101,21 @@ function CodeEditorDialog({
           </div>
 
           {isShowAiPanel && (
-            <div className="w-1/3 flex flex-col gap-4">
+            <div className="w-1/3 flex flex-col gap-2">
               <div className="font-medium text-center">AI Code Assistant</div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden flex flex-col gap-2 p-2">
+                <div className="flex-2 min-h-0 overflow-auto border rounded-md p-2 text-sm">
+                  {response ? (
+                    <MarkdownRenderer content={response} />
+                  ) : (
+                    <div className="text-center text-muted-foreground">No response from AI</div>
+                  )}
+                </div>
                 <Textarea
                   placeholder={`Describe what you want to generate or change in the code...`}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="resize-none text-sm h-full"
+                  className="flex-1 resize-none text-sm"
                   disabled={isAiLoading}
                 />
               </div>
@@ -113,6 +123,7 @@ function CodeEditorDialog({
                 type="button"
                 onClick={handleAiAction}
                 disabled={isAiLoading || !prompt.trim()}
+                className="mx-2"
               >
                 {isAiLoading ? (
                   <>
