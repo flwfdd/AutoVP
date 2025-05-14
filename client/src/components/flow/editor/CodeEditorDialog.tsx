@@ -86,7 +86,7 @@ function CodeEditorDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-row gap-2 overflow-hidden min-h-0">
           <div className="flex-1 flex flex-col overflow-hidden border rounded-md">
             <Editor
               height="100%"
@@ -104,11 +104,11 @@ function CodeEditorDialog({
             <div className="w-1/3 flex flex-col gap-2">
               <div className="font-medium text-center">AI Code Assistant</div>
               <div className="flex-1 overflow-hidden flex flex-col gap-2 p-2">
-                <div className="flex-2 min-h-0 overflow-auto border rounded-md p-2 text-sm">
+                <div className="flex-2 min-h-0 overflow-auto border rounded-md px-4 text-sm">
                   {response ? (
                     <MarkdownRenderer content={response} />
                   ) : (
-                    <div className="text-center text-muted-foreground">No response from AI</div>
+                    <div className="text-center text-muted-foreground">Ask AI to generate or change the code...</div>
                   )}
                 </div>
                 <Textarea
@@ -123,7 +123,6 @@ function CodeEditorDialog({
                 type="button"
                 onClick={handleAiAction}
                 disabled={isAiLoading || !prompt.trim()}
-                className="mx-2"
               >
                 {isAiLoading ? (
                   <>

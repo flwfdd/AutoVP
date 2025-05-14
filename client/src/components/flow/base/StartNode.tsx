@@ -1,11 +1,11 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import { z } from 'zod';
 import BaseNode from './BaseNode';
 
-const StartNodeInputSchema = BaseNodeInputSchema.extend({});
+const StartNodeInputSchema = z.any();
 type IStartNodeInput = z.infer<typeof StartNodeInputSchema>;
 
 const StartNodeOutputSchema = BaseNodeOutputSchema.extend({

@@ -51,10 +51,10 @@ export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeS
             <div className="flex gap-4">
               <pre className="flex-1 text-sm whitespace-pre-wrap break-all">{log.input}</pre>
               <pre className="flex-1 text-sm whitespace-pre-wrap break-all">
-                <div>{log.output}</div>
                 {log.error && (
                   <div className="text-red-600">{log.error}</div>
                 )}
+                <div>{log.output}</div>
               </pre>
             </div>
           </div>

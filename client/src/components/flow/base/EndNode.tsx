@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import { z } from 'zod';
 import BaseNode from './BaseNode';
@@ -9,7 +9,7 @@ const EndNodeInputSchema = BaseNodeInputSchema.extend({
 });
 type IEndNodeInput = z.infer<typeof EndNodeInputSchema>;
 
-const EndNodeOutputSchema = BaseNodeOutputSchema.extend({});
+const EndNodeOutputSchema = z.any();
 type IEndNodeOutput = z.infer<typeof EndNodeOutputSchema>;
 
 const EndNodeConfigSchema = BaseNodeConfigSchema.extend({});

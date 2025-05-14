@@ -236,6 +236,19 @@ export async function runFlow(
         log.input = input;
         // 更新节点状态
         updateNodeRunState(node.id, node.runState);
+
+        // 验证输入数据
+        try {
+          node.type.inputSchema.parse(input);
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            console.error(`Input validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
+            throw new Error(`Invalid input for node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+          } else {
+            throw error;
+          }
+        }
+
         // 执行节点
         const output = await node.type.run({
           config: node.config,
@@ -253,6 +266,19 @@ export async function runFlow(
         // 运行成功callback
         console.log('output', node.config.name, node.id, output);
         log.output = output;
+
+        // 验证输出数据
+        try {
+          node.type.outputSchema.parse(output);
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            console.error(`Output validation failed for node "${node.id}" (${node.config.name}):`, error.errors);
+            throw new Error(`Invalid output from node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+          } else {
+            throw error;
+          }
+        }
+
         // 将输出写入边
         node.outputEdges.forEach((edge) => {
           // 输出为undefined表示不走这条边
@@ -376,6 +402,20 @@ export type IDSL = z.infer<typeof DSLSchema>;
 
 // 导出单个Flow
 function dumpFlow(input: IFlow): IFlowDSL {
+  // 验证所有节点的配置
+  input.nodes.forEach(node => {
+    try {
+      node.type.configSchema.parse(node.config);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error(`Config validation failed when exporting node "${node.id}" (${node.config.name}):`, error.errors);
+        throw new Error(`Invalid config for node "${node.config.name}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+      } else {
+        throw error;
+      }
+    }
+  });
+
   return {
     id: input.id,
     name: input.name,
@@ -441,11 +481,24 @@ function loadFlow(
       throw new Error(`Unknown node type "${nodeDSL.type}".`);
     }
 
+    // 使用节点类型的configSchema验证配置
+    let validatedConfig;
+    try {
+      validatedConfig = nodeType.configSchema.parse(nodeDSL.config);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error(`Config validation failed for node "${nodeDSL.id}" of type "${nodeDSL.type}":`, error.errors);
+        throw new Error(`Invalid config for node "${nodeDSL.id}": ${error.errors.map(e => `${e.path.join('.')} (${e.message})`).join(', ')}`);
+      } else {
+        throw error;
+      }
+    }
+
     const newNode: INodeWithPosition = {
       id: nodeDSL.id,
       type: nodeType,
       position: nodeDSL.position,
-      config: { ...nodeType.defaultConfig, ...(nodeDSL.config ?? {}) },
+      config: validatedConfig,
       state: nodeType.defaultState,
       runState: defaultNodeRunState,
     };
@@ -483,12 +536,12 @@ function loadFlow(
 
 // 子流节点类型
 export const FlowNodeInputSchema = NodeInputSchema.extend({
-  input: NodeInputSchema,
+  input: z.any(),
 });
 export type IFlowNodeInput = z.infer<typeof FlowNodeInputSchema>;
 
 export const FlowNodeOutputSchema = NodeOutputSchema.extend({
-  output: NodeOutputSchema,
+  output: z.any(),
 });
 export type IFlowNodeOutput = z.infer<typeof FlowNodeOutputSchema>;
 

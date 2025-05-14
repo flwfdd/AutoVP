@@ -12,7 +12,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Moon, Plus, ScrollText, Sun, SunMoon } from "lucide-react";
+import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sun, SunMoon } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -22,6 +22,7 @@ import { newFlowNodeType } from '@/components/flow/base/FlowNode';
 import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
+import MarkdownRenderer from "@/components/flow/editor/MarkdownRenderer";
 import { ImageNodeType } from '@/components/flow/ImageNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
 import { LLMNodeType } from "@/components/flow/LLMNode";
@@ -52,9 +53,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from "@/components/ui/textarea";
+import configGlobal from "@/lib/config";
 import { defaultNodeRunState, dumpDSL, IEdge, IFlowDSL, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
+import { llm } from "@/lib/llm";
 import { generateId } from '@/lib/utils';
-import { PlayCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 // 注册节点类型
@@ -446,19 +449,19 @@ function Flow() {
             </Button>
           </div>
           <div className='space-y-2'>
-            <Button className="w-full" onClick={handleRun}>
+            <Button variant="outline" className="w-full" onClick={handleRun}>
               <PlayCircle />
               Run
             </Button>
-            <Button className="w-full" onClick={handleImportClick}>
+            <Button variant="outline" className="w-full" onClick={handleImportClick}>
               <FileUp />
               Import
             </Button>
-            <Button className="w-full" onClick={handleExport}>
+            <Button variant="outline" className="w-full" onClick={handleExport}>
               <FileDown />
               Export
             </Button>
-            <Button className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
+            <Button variant="outline" className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
               <ScrollText />
               Run Logs
             </Button>
@@ -468,7 +471,7 @@ function Flow() {
                 Back to Main Flow
               </Button>
             ) : (
-              <Button className="w-full" onClick={handleRegisterFlow}>
+              <Button variant="outline" className="w-full" onClick={handleRegisterFlow}>
                 <Plus />
                 Register Flow
               </Button>
@@ -628,17 +631,93 @@ interface LogDialogProps {
 }
 
 function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }: LogDialogProps) {
+  const [isShowAiPanel, setIsShowAiPanel] = useState(true);
+  const [prompt, setPrompt] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState('');
+
+  const handleAiLogAnalysis = async () => {
+    if (!prompt.trim()) return;
+    setIsAiLoading(true);
+    setAiResponse('');
+
+    // TODO: Get selected log or all logs
+    const logData = JSON.stringify(nodes.map(n => ({ id: n.id, name: n.config.name, runState: n.runState })), null, 2);
+
+    const systemPrompt = `You are an expert log analysis assistant.
+The user will provide you with logs from a flow execution and a prompt for analysis.
+Analyze the logs based on the user's prompt and provide insights.
+Current Logs:
+\`\`\`json
+${logData}
+\`\`\`
+`;
+
+    try {
+      const response = await llm(configGlobal.codeEditorModel, [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ]);
+      if (response) {
+        setAiResponse(response);
+      } else {
+        toast.error('AI returned an empty response.');
+        setAiResponse('AI returned an empty response.');
+      }
+    } catch (error: any) {
+      toast.error('Error during AI log analysis: ' + error.message);
+      setAiResponse('Error during AI log analysis: ' + error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   return (
     <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
-      <DialogContent className="min-w-[90vw] min-h-[90vh] max-w-[90vw] max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="min-w-[95vw] min-h-[90vh] max-w-[95vw] max-h-[90vh] flex flex-col p-4">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Run Logs</DialogTitle>
           <DialogDescription>
-            Timeline logs of recent flow run
+            <div className="flex justify-between items-center">
+              Timeline logs of recent flow run. You can also use the AI assistant to analyze logs.
+              <Button variant="ghost" size="icon" onClick={() => setIsShowAiPanel(!isShowAiPanel)}>
+                {isShowAiPanel ? <PanelRightClose /> : <PanelLeftClose />}
+              </Button>
+            </div>
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 h-[calc(90vh-120px)]">
-          <TimelineLog nodes={nodes} highlightNode={highlightNode} />
+        <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
+          <div className="flex-1 h-full overflow-y-auto">
+            <TimelineLog nodes={nodes} highlightNode={highlightNode} />
+          </div>
+          {isShowAiPanel && (
+            <div className="w-1/3 flex flex-col gap-2">
+              <div className="font-medium text-center">AI Log Analysis</div>
+              <div className="flex-1 min-h-0 overflow-auto border rounded-md px-4 text-sm">
+                {aiResponse ? (
+                  <MarkdownRenderer content={aiResponse} />
+                ) : (
+                  <div className="text-center text-muted-foreground">Ask AI to analyze logs...</div>
+                )}
+              </div>
+              <Textarea
+                placeholder={`Ask AI to analyze logs... (e.g., "Which nodes failed?", "Summarize the run.")`}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="resize-none text-sm h-24 shrink-0"
+                disabled={isAiLoading}
+              />
+              <Button type="button" onClick={handleAiLogAnalysis} disabled={isAiLoading || !prompt.trim()}>
+                {isAiLoading ? (
+                  <>
+                    <Loader className="animate-spin" /> Analyzing...
+                  </>
+                ) : (
+                  `Analyze Logs`
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
