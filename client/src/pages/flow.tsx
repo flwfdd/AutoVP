@@ -56,7 +56,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import configGlobal from "@/lib/config";
-import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeState, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { llm } from "@/lib/llm";
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -224,6 +224,7 @@ function Flow() {
       state: node.state,
       runState: node.runState,
     },
+    deletable: node.type.id !== 'start' && node.type.id !== 'end',
   });
 
   const fromIDSLEdge = (edge: IEdge): Edge => ({
@@ -476,14 +477,16 @@ function Flow() {
               <PlayCircle />
               Run
             </Button>
-            <Button variant="outline" className="w-full" onClick={handleImportClick}>
-              <FileUp />
-              Import
-            </Button>
-            <Button variant="outline" className="w-full" onClick={handleExport}>
-              <FileDown />
-              Export
-            </Button>
+            <div className="flex flex-row gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleImportClick}>
+                <FileDown />
+                Import
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={handleExport}>
+                <FileUp />
+                Export
+              </Button>
+            </div>
             <Button variant="outline" className="w-full" onClick={() => { setIsRunLogDialogOpen(true) }}>
               <ScrollText />
               Run Logs
@@ -655,7 +658,7 @@ function Flow() {
         newFlowNodeType={newFlowNodeType}
       />
 
-    </div>
+    </div >
   );
 }
 
@@ -677,15 +680,45 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
     setIsAiLoading(true);
     setAiResponse('');
 
-    // TODO: Get selected log or all logs
-    const logData = JSON.stringify(nodes.map(n => ({ id: n.id, name: n.config.name, runState: n.runState })), null, 2);
+    // 定义节点日志数据类型
+    interface NodeLogData {
+      id: string;
+      type: string;
+      typeName: string;
+      name: string;
+      runState: INodeStateRun<any, any>;
+      children?: NodeLogData[];
+    }
+
+    // 获取完整的日志数据，包括嵌套的Flow节点日志
+    const extractFullLogData = (node: INode): NodeLogData => {
+      const nodeData: NodeLogData = {
+        id: node.id,
+        type: node.type.id,
+        typeName: node.type.name,
+        name: node.config.name,
+        runState: node.runState,
+      };
+
+      // 如果是Flow节点，递归获取其子节点日志
+      if (node.type.id.startsWith('flow_')) {
+        const state = node.state as IFlowNodeState;
+        if (state.runNodes && state.runNodes.length > 0) {
+          nodeData.children = state.runNodes.map(childNode => extractFullLogData(childNode));
+        }
+      }
+
+      return nodeData;
+    };
+
+    const fullLogData = JSON.stringify(nodes.map(node => extractFullLogData(node)), null, 2);
 
     const systemPrompt = `You are an expert log analysis assistant.
 The user will provide you with logs from a flow execution and a prompt for analysis.
 Analyze the logs based on the user's prompt and provide insights.
 Current Logs:
 \`\`\`json
-${logData}
+${fullLogData}
 \`\`\`
 `;
 
@@ -710,7 +743,7 @@ ${logData}
 
   return (
     <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
-      <DialogContent className="min-w-full min-h-full max-w-full max-h-full flex flex-col p-4">
+      <DialogContent className="min-w-full min-h-full max-w-full max-h-full flex flex-col p-4 rounded-none">
         <DialogHeader className="shrink-0">
           <DialogTitle>Run Logs</DialogTitle>
           <DialogDescription>

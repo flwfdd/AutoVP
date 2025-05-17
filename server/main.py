@@ -19,7 +19,7 @@ load_dotenv()
 
 # --- Configuration ---
 DOCKER_IMAGE_NAME = "python-runner"  # Image built from Dockerfile
-EXECUTION_TIMEOUT_SECONDS = 20  # Max execution time for user code
+EXECUTION_TIMEOUT_SECONDS = 60  # Max execution time for user code
 DOCKER_CONTAINER_USER = "appuser" # User inside the Docker container
 
 # OpenAI Configuration
@@ -242,5 +242,5 @@ async def proxy_openai_chat_completions(
         logger.error(f"Unexpected error in OpenAI proxy: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail={"type": "server_error", "message": "An unexpected error occurred while proxying to OpenAI."}
+            detail= str(e)
         )

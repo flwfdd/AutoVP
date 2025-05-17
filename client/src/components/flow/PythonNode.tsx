@@ -8,7 +8,7 @@ import { generateId } from '@/lib/utils';
 import {
   Position
 } from '@xyflow/react';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { Code, XCircle } from "lucide-react";
 import React, { useCallback, useMemo, useState } from 'react';
 import { z } from "zod";
@@ -65,25 +65,10 @@ async function runPythonCode(code: string): Promise<ExecutionResult> {
     return response.data;
   } catch (e: any) {
     console.error("Error calling Python API:", e);
-    let errorMessage = "Failed to connect to Python execution service.";
-    if (axios.isAxiosError(e)) {
-      const error = e as AxiosError<ExecutionResult>;
-      if (error.response && error.response.data && error.response.data.error) {
-        errorMessage = `Python API Error: ${error.response.data.error}`;
-      } else if (error.response) {
-        errorMessage = `Python API request failed: ${error.response.status} ${error.response.statusText}`;
-      } else if (error.request) {
-        errorMessage = "Python API request made but no response received.";
-      } else {
-        errorMessage = error.message;
-      }
-    } else if (e.message) {
-      errorMessage = e.message;
-    }
     return {
       output: null,
       exit_code: -1,
-      error: errorMessage,
+      error: e.message,
       duration_seconds: null,
     };
   }
@@ -237,7 +222,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')}.`;
         placeholder='Python Code'
         value={config.code}
         onChange={onCodeChange}
-        className='nowheel nodrag'
+        className='nowheel nodrag whitespace-pre-wrap break-all'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
         <Code /> Code Editor

@@ -193,7 +193,7 @@ ${dslError}
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="min-w-full max-w-full min-h-full max-h-full flex flex-col p-4 [&>button]:hidden">
+      <DialogContent className="min-w-full max-w-full min-h-full max-h-full flex flex-col p-4 [&>button]:hidden rounded-none">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <DialogTitle>AI Copilot</DialogTitle>

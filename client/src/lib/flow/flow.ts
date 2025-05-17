@@ -304,8 +304,11 @@ export async function runFlow(
       updateNodeRunState(node.id, node.runState);
 
       // 处理输出边和激活下游节点
-      await processOutputs(node, output);
-
+      try {
+        await processOutputs(node, output);
+      } catch (e: any) {
+        console.error('processOutputs error', node.config.name, node.id, e);
+      }
     } catch (e: any) {
       // 设置节点状态为失败
       node.runState.status = 'error';
@@ -622,6 +625,29 @@ function loadFlow(
     // 当前我们先跳过key验证，因为在我们的系统中key可能是动态的
     // 在未来，我们可以添加更严格的key验证，例如通过收集节点类型支持的输入/输出键
     // 或者在节点类型中添加handler定义等方式
+  }
+
+  // 检查入度唯一：确保每个节点的每个输入连接点只连接一条边
+  const targetConnectionPoints = new Map<string, string>(); // 格式: "nodeId:key" -> edgeId
+  const duplicateTargets = new Set<string>();
+
+  for (const edgeDSL of dsl.edges) {
+    const targetKey = `${edgeDSL.target.node}:${edgeDSL.target.key}`;
+
+    if (targetConnectionPoints.has(targetKey)) {
+      // 发现重复的目标连接点
+      duplicateTargets.add(targetKey);
+    } else {
+      targetConnectionPoints.set(targetKey, edgeDSL.id);
+    }
+  }
+
+  if (duplicateTargets.size > 0) {
+    const details = Array.from(duplicateTargets).map(target => {
+      const [nodeId, key] = target.split(':');
+      return `Node "${nodeId}" has multiple edges targeting input "${key}"`;
+    }).join(', ');
+    throw new Error(`Multiple edges connect to the same input: ${details}. Each input connection point can only connect one edge.`);
   }
 
   const edges = dsl.edges.map((edgeDSL) => {

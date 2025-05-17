@@ -207,7 +207,7 @@ Available branch names: ${config.branches.map(branch => branch.name).join(', ')}
         placeholder='Condition Code'
         value={config.code}
         onChange={onCodeChange}
-        className='nowheel nodrag'
+        className='nowheel nodrag whitespace-pre-wrap break-all'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
         <Code /> Code Editor

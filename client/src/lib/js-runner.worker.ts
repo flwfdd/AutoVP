@@ -9,20 +9,20 @@ export type WorkerOutput =
 
 // 接收调用信息
 self.onmessage = async (event: MessageEvent<WorkerInput>) => {
-    const { code, params } = event.data;
-
-    // 注入参数
-    let paramInjectionString = '';
-    Object.entries(params).forEach(([key, value]) => {
-        paramInjectionString += `let ${key} = ${JSON.stringify(value)};\n`;
-    });
-
-    // 构造异步执行函数
-    const fullCode = `${paramInjectionString}\n${code}`;
-    const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
-    const runner = new AsyncFunction(fullCode);
-
     try {
+        const { code, params } = event.data;
+
+        // 注入参数
+        let paramInjectionString = '';
+        Object.entries(params).forEach(([key, value]) => {
+            paramInjectionString += `let ${key} = ${JSON.stringify(value)};\n`;
+        });
+
+        // 构造异步执行函数
+        const fullCode = `${paramInjectionString}\n${code}`;
+        const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
+        const runner = new AsyncFunction(fullCode);
+
         // 执行代码
         const output = await runner();
         // 返回结果

@@ -178,7 +178,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')} .`;
         placeholder='JavaScript Code'
         value={config.code}
         onChange={onCodeChange}
-        className='nowheel nodrag'
+        className='nowheel nodrag whitespace-pre-wrap break-all max-h-[50vh]'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
         <Code /> Code Editor

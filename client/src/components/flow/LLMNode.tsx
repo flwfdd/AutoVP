@@ -12,6 +12,7 @@ import { llm } from '@/lib/llm';
 import { Position } from '@xyflow/react';
 import { useCallback } from 'react';
 import { z } from 'zod';
+import { Textarea } from "../ui/textarea";
 import BaseNode from './base/BaseNode';
 
 const LLMNodeInputSchema = BaseNodeInputSchema.extend({
@@ -25,6 +26,7 @@ const LLMNodeOutputSchema = BaseNodeOutputSchema.extend({
 type ILLMNodeOutput = z.infer<typeof LLMNodeOutputSchema>;
 
 const LLMNodeConfigSchema = BaseNodeConfigSchema.extend({
+  systemPrompt: z.string().describe('system prompt to send to the LLM'),
   model: z.string().describe('model to use, available models: ' + configGlobal.llm.models.join(', ')),
 });
 type ILLMNodeConfig = z.infer<typeof LLMNodeConfigSchema>;
@@ -41,6 +43,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
   defaultConfig: {
     name: 'New LLM',
     description: '',
+    systemPrompt: '',
     model: configGlobal.llm.models.length > 0 ? configGlobal.llm.models[0] : ''
   },
   defaultState: { highlight: false },
@@ -50,7 +53,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
       throw new Error("No LLM model selected or configured.");
     }
     const response = await llm(context.config.model, [
-      { role: 'system', content: 'You are a helpful assistant.' },
+      { role: 'system', content: context.config.systemPrompt },
       { role: 'user', content: context.input.prompt },
     ]);
     return { output: response || '' };
@@ -83,6 +86,13 @@ function LLMNodeUI(props: INodeProps<ILLMNodeConfig, ILLMNodeState, ILLMNodeInpu
       ]}
     >
       <div className="nodrag flex flex-col gap-2 p-2">
+        <Label htmlFor={`llm-system-prompt-input-${props.id}`}>System Prompt</Label>
+        <Textarea
+          id={`llm-system-prompt-input-${props.id}`}
+          value={config.systemPrompt}
+          onChange={(e) => setConfig({ systemPrompt: e.target.value })}
+          className="nowheel nodrag whitespace-pre-wrap break-all max-h-[50vh]"
+        />
         <Label htmlFor={`llm-model-select-${props.id}`}>Model</Label>
         <Select
           value={config.model}

@@ -76,7 +76,7 @@ function CodeEditorDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="min-w-full max-w-full min-h-full max-h-full rounded-md flex flex-col p-4 [&>button]:hidden">
+      <DialogContent className="min-w-full max-w-full min-h-full max-h-full rounded-none flex flex-col p-4 [&>button]:hidden">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <DialogTitle>{title}</DialogTitle>
