@@ -53,7 +53,7 @@ function EndNodeUI(props: INodeProps<IEndNodeConfig, IEndNodeState, IEndNodeInpu
         placeholder="Empty"
         value={JSON.stringify(runState.input.value, null, 2)}
         readOnly
-        className='nowheel nodrag max-h-[50vh]'
+        className='nowheel nodrag max-h-32'
       />
     </BaseNode>
   );

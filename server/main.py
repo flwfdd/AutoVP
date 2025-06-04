@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import tempfile
 import logging
@@ -9,6 +10,7 @@ import docker
 from docker.errors import APIError, ImageNotFound, NotFound
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 import openai
@@ -26,6 +28,7 @@ DOCKER_CONTAINER_USER = "appuser" # User inside the Docker container
 OPENAI_API_BASE_URL = os.getenv("OPENAI_API_BASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_DEFAULT_MODEL = os.getenv("OPENAI_DEFAULT_MODEL")
+MAX_TOKENS = 16 * 1024
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +60,7 @@ class OpenAIChatMessage(BaseModel):
 class OpenAIChatCompletionsRequest(BaseModel):
     model: str = Field(..., example=OPENAI_DEFAULT_MODEL)
     messages: List[OpenAIChatMessage]
+    stream: bool = Field(False, description="Whether to stream the response")
 
 class OpenAIUsage(BaseModel):
     prompt_tokens: int
@@ -75,6 +79,23 @@ class OpenAIChatCompletionsResponse(BaseModel):
     model: str
     choices: List[OpenAIChatChoice]
     usage: OpenAIUsage | None = None
+
+# 流式响应的 Delta 模型
+class OpenAIDelta(BaseModel):
+    content: str | None = None
+    role: str | None = None
+
+class OpenAIChatChoiceDelta(BaseModel):
+    index: int
+    delta: OpenAIDelta
+    finish_reason: str | None = None
+
+class OpenAIChatCompletionsStreamResponse(BaseModel):
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: List[OpenAIChatChoiceDelta]
 
 # --- FastAPI Lifespan Management ---
 @asynccontextmanager
@@ -214,7 +235,7 @@ async def execute_code_endpoint(payload: CodeInput):
         raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
 
 # --- OpenAI Proxy Endpoint ---
-@app.post("/openai/chat/completions", response_model=Any)
+@app.post("/openai/chat/completions")
 async def proxy_openai_chat_completions(
     payload: OpenAIChatCompletionsRequest
 ):
@@ -231,12 +252,38 @@ async def proxy_openai_chat_completions(
     try:
         client = openai.AsyncOpenAI(base_url=OPENAI_API_BASE_URL, api_key=OPENAI_API_KEY)
         
-        response = await client.chat.completions.create(
-            model=payload.model or OPENAI_DEFAULT_MODEL,
-            messages=[msg.model_dump() for msg in payload.messages],
-            max_tokens=64*1024,
-        )
-        return response.model_dump()
+        if payload.stream:
+            # 流式响应
+            async def generate_stream():
+                try:
+                    stream = await client.chat.completions.create(
+                        model=payload.model or OPENAI_DEFAULT_MODEL,
+                        messages=[msg.model_dump() for msg in payload.messages],
+                        max_tokens=MAX_TOKENS,
+                        stream=True,
+                    )
+                    async for chunk in stream:
+                        chunk_data = chunk.model_dump()
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                    yield "data: [DONE]\n\n"
+                except Exception as e:
+                    logger.error(f"Error in streaming response: {str(e)}", exc_info=True)
+                    error_data = {"error": str(e)}
+                    yield f"data: {json.dumps(error_data)}\n\n"
+            
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/plain",
+                headers={"Cache-Control": "no-cache"}
+            )
+        else:
+            # 非流式响应
+            response = await client.chat.completions.create(
+                model=payload.model or OPENAI_DEFAULT_MODEL,
+                messages=[msg.model_dump() for msg in payload.messages],
+                max_tokens=MAX_TOKENS,
+            )
+            return response.model_dump()
 
     except Exception as e:
         logger.error(f"Unexpected error in OpenAI proxy: {str(e)}", exc_info=True)

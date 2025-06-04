@@ -13,7 +13,7 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sparkles, Sun, SunMoon } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
 
@@ -57,7 +57,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import configGlobal from "@/lib/config";
 import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeState, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
-import { llm } from "@/lib/llm";
+import { llmStream } from '@/lib/llm';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -674,6 +674,14 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
   const [prompt, setPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
+  const [responseRef, setResponseRef] = useState<HTMLDivElement | null>(null);
+
+  // 自动滚动到响应区域底部
+  useEffect(() => {
+    if (responseRef && isAiLoading) {
+      responseRef.scrollTop = responseRef.scrollHeight;
+    }
+  }, [aiResponse, responseRef, isAiLoading]);
 
   const handleAiLogAnalysis = async () => {
     if (!prompt.trim()) return;
@@ -700,6 +708,23 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
         runState: node.runState,
       };
 
+      // 对过长的输入输出进行截断
+      const MAX_LOG_IO_LENGTH = 1000;
+      const truncate = (value: any) => {
+        let text = JSON.stringify(value);
+        if (text.length > MAX_LOG_IO_LENGTH) {
+          return text.slice(0, MAX_LOG_IO_LENGTH) + '...[truncated]';
+        }
+        return text;
+      }
+      nodeData.runState.input = truncate(nodeData.runState.input);
+      nodeData.runState.output = truncate(nodeData.runState.output);
+      nodeData.runState.logs = nodeData.runState.logs.map(log => ({
+        ...log,
+        input: truncate(log.input),
+        output: truncate(log.output),
+      }));
+
       // 如果是Flow节点，递归获取其子节点日志
       if (node.type.id.startsWith('flow_')) {
         const state = node.state as IFlowNodeState;
@@ -714,8 +739,10 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
     const fullLogData = JSON.stringify(nodes.map(node => extractFullLogData(node)), null, 2);
 
     const systemPrompt = `You are an expert log analysis assistant.
-The user will provide you with logs from a flow execution and a prompt for analysis.
-Analyze the logs based on the user's prompt and provide insights.
+The user will provide you with logs from a flow execution and a question for analysis.
+Analyze the logs based on the user's question and provide insights.
+Think step by step and explain your analysis, You need to answer in the language of the user's question.
+
 Current Logs:
 \`\`\`json
 ${fullLogData}
@@ -723,13 +750,19 @@ ${fullLogData}
 `;
 
     try {
-      const response = await llm(configGlobal.codeEditorModel, [
+      let fullResponse = '';
+
+      const stream = llmStream(configGlobal.codeEditorModel, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ]);
-      if (response) {
-        setAiResponse(response);
-      } else {
+
+      for await (const chunk of stream) {
+        fullResponse += chunk;
+        setAiResponse(fullResponse);
+      }
+
+      if (!fullResponse) {
         toast.error('AI returned an empty response.');
         setAiResponse('AI returned an empty response.');
       }
@@ -762,7 +795,10 @@ ${fullLogData}
           {isShowAiPanel && (
             <div className="w-1/3 flex flex-col gap-2">
               <div className="font-medium text-center">AI Log Analysis</div>
-              <div className="flex-1 min-h-0 overflow-auto border rounded-md px-4 text-sm">
+              <div
+                ref={setResponseRef}
+                className="flex-1 min-h-0 overflow-auto border rounded-md px-4 text-sm"
+              >
                 {aiResponse ? (
                   <MarkdownRenderer content={aiResponse} />
                 ) : (

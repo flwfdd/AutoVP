@@ -16,6 +16,7 @@ RUN apk add --no-cache --virtual .build-deps \
     # during build, but the primary issue here is runtime.
     && pip install --no-cache-dir \
     requests \
+    beautifulsoup4 \
     matplotlib \
     numpy \
     && apk del .build-deps

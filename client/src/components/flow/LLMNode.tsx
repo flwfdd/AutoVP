@@ -16,7 +16,7 @@ import { Textarea } from "../ui/textarea";
 import BaseNode from './base/BaseNode';
 
 const LLMNodeInputSchema = BaseNodeInputSchema.extend({
-  prompt: z.string().describe('prompt to send to the LLM'),
+  prompt: z.any().describe('prompt to send to the LLM, if the prompt is not a string, it will be converted to a string by JSON.stringify'),
 });
 type ILLMNodeInput = z.infer<typeof LLMNodeInputSchema>;
 
@@ -54,7 +54,7 @@ export const LLMNodeType: INodeType<ILLMNodeConfig, ILLMNodeState, ILLMNodeInput
     }
     const response = await llm(context.config.model, [
       { role: 'system', content: context.config.systemPrompt },
-      { role: 'user', content: context.input.prompt },
+      { role: 'user', content: typeof context.input.prompt === 'string' ? context.input.prompt : JSON.stringify(context.input.prompt) },
     ]);
     return { output: response || '' };
   }
@@ -91,7 +91,7 @@ function LLMNodeUI(props: INodeProps<ILLMNodeConfig, ILLMNodeState, ILLMNodeInpu
           id={`llm-system-prompt-input-${props.id}`}
           value={config.systemPrompt}
           onChange={(e) => setConfig({ systemPrompt: e.target.value })}
-          className="nowheel nodrag whitespace-pre-wrap break-all max-h-[50vh]"
+          className="nowheel nodrag whitespace-pre-wrap break-all max-h-32"
         />
         <Label htmlFor={`llm-model-select-${props.id}`}>Model</Label>
         <Select

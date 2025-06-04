@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import configGlobal from '@/lib/config';
-import { llm } from '@/lib/llm';
+import { llmStream } from '@/lib/llm';
 import { Editor } from '@monaco-editor/react';
 import { Loader, PanelLeftClose, PanelRightClose } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -40,11 +40,19 @@ function CodeEditorDialog({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isShowAiPanel, setIsShowAiPanel] = useState(true);
   const [response, setResponse] = useState('');
+  const [responseRef, setResponseRef] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     if (isOpen) {
       setInternalCode(code);
     }
   }, [code, isOpen]);
+
+  // 自动滚动到响应区域底部
+  useEffect(() => {
+    if (responseRef && isAiLoading) {
+      responseRef.scrollTop = responseRef.scrollHeight;
+    }
+  }, [response, responseRef, isAiLoading]);
 
   const handleSave = () => {
     onCodeChange(internalCode);
@@ -54,17 +62,39 @@ function CodeEditorDialog({
   const handleAiAction = async () => {
     if (!prompt.trim()) return;
     setIsAiLoading(true);
+    setResponse('');
+
     try {
-      const response = await llm(configGlobal.codeEditorModel, [
+      let fullResponse = '';
+
+      const stream = llmStream(configGlobal.codeEditorModel, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `${prompt}\n\nCurrent Code:\`\`\`${language}\n${internalCode}\`\`\`` },
       ]);
-      if (response) {
-        setResponse(response);
-        const codeBlockMatch = response.match(/```(?:[a-zA-Z]+)?\n([\s\S]*?)\n```/);
-        setInternalCode(codeBlockMatch && codeBlockMatch[1] ? codeBlockMatch[1].trim() : response.trim());
-      } else {
+
+      for await (const chunk of stream) {
+        fullResponse += chunk;
+        setResponse(fullResponse);
+      }
+
+      if (!fullResponse) {
         toast.error('AI returned an empty response.');
+        setResponse('AI returned an empty response.');
+        return;
+      }
+
+      try {
+        const codeBlockMatches = [...fullResponse.matchAll(/```(?:[a-zA-Z]+)?\n([\s\S]*?)\n```/g)];
+        if (codeBlockMatches.length > 0) {
+          const lastMatch = codeBlockMatches[codeBlockMatches.length - 1];
+          const extractedCode = lastMatch[1].trim();
+          setInternalCode(extractedCode);
+        } else {
+          // 如果没有代码块，直接使用整个响应
+          setInternalCode(fullResponse.trim());
+        }
+      } catch (codeError) {
+        toast.error('Failed to extract code from AI response');
       }
     } catch (error: any) {
       setResponse(error.message);
@@ -100,7 +130,10 @@ function CodeEditorDialog({
             <div className="w-1/3 flex flex-col gap-2">
               <div className="font-medium text-center">AI Code Assistant</div>
               <div className="flex-1 overflow-hidden flex flex-col gap-2 p-2">
-                <div className="flex-2 min-h-0 overflow-auto border rounded-md px-4 text-sm">
+                <div
+                  ref={setResponseRef}
+                  className="flex-2 min-h-0 overflow-auto border rounded-md px-4 text-sm"
+                >
                   {response ? (
                     <MarkdownRenderer content={response} />
                   ) : (
@@ -111,7 +144,7 @@ function CodeEditorDialog({
                   placeholder={`Describe what you want to generate or change in the code...`}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  className="flex-1 resize-none text-sm"
+                  className="resize-none text-sm h-24"
                   disabled={isAiLoading}
                 />
               </div>

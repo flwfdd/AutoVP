@@ -115,6 +115,8 @@ function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNo
 
   const systemPrompt = useMemo(() => {
     return `You are an expert JavaScript programmer. Your task is to help the user with their code.
+Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
+You have to make sure the last code block is a valid full code.
 ${codeDescription}
 Available params are: ${config.params.map(param => param.name).join(', ')} .`;
   }, [config.params]);
@@ -178,7 +180,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')} .`;
         placeholder='JavaScript Code'
         value={config.code}
         onChange={onCodeChange}
-        className='nowheel nodrag whitespace-pre-wrap break-all max-h-[50vh]'
+        className='nowheel nodrag whitespace-pre-wrap break-all max-h-32'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
         <Code /> Code Editor

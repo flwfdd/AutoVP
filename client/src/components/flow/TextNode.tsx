@@ -62,7 +62,7 @@ function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNode
         placeholder="Enter text"
         value={config.text}
         onChange={onChange}
-        className='nowheel nodrag max-h-[50vh]'
+        className='nowheel nodrag max-h-32'
       />
     </BaseNode>
   );

@@ -19,7 +19,7 @@ const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
 const PythonNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.string().describe('output of the code'),
+  output: z.any().describe('output of the code'),
 });
 type IPythonNodeOutput = z.infer<typeof PythonNodeOutputSchema>;
 
@@ -35,7 +35,7 @@ def main(name):
   return f"Hello, {name}!"
 \`\`\`
 However, you **should not** output the main function, just output the code in it directly.
-The 3rd-party packages you can use are: requests, numpy, matplotlib.
+The 3rd-party packages you can use are: requests, beautifulsoup4, numpy, matplotlib. **IMPORTANT: DO NOT use non-ascii characters(e.g. CJK) in matplotlib plot, it will cause error**
 If you want to output an image, you should convert the image to a url or base64 src then return it.
 `;
 
@@ -162,8 +162,10 @@ function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPy
 
   const systemPrompt = useMemo(() => {
     return `You are an expert python programmer. Your task is to help the user with their code.
+Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
+You have to make sure the last code block is a valid full code.
 ${codeDescription}
-Available params are: ${config.params.map(param => param.name).join(', ')}.`;
+Available params are: ${config.params.map(param => param.name).join(', ')} .`;
   }, [config.params]);
 
   const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -222,7 +224,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')}.`;
         placeholder='Python Code'
         value={config.code}
         onChange={onCodeChange}
-        className='nowheel nodrag whitespace-pre-wrap break-all'
+        className='nowheel nodrag whitespace-pre-wrap break-all max-h-32'
       />
       <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
         <Code /> Code Editor

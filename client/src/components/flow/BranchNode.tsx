@@ -148,6 +148,7 @@ function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBr
 
   const systemPrompt = useMemo(() => {
     return `You are a professional JavaScript programmer. Your task is to help the user write branch condition logic code.
+Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
 ${codePrompt}
 Available branch names: ${config.branches.map(branch => branch.name).join(', ')}`;
   }, [config.branches]);

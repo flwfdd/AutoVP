@@ -10,7 +10,7 @@ import BaseNode from './base/BaseNode';
 import MarkdownRenderer from "./editor/MarkdownRenderer";
 
 const DisplayNodeInputSchema = BaseNodeInputSchema.extend({
-  value: z.any().describe('value to display'),
+  value: z.any().describe('value to display, if the value is a string, it can be viewed as markdown'),
 });
 type IDisplayNodeInput = z.infer<typeof DisplayNodeInputSchema>;
 
@@ -65,7 +65,7 @@ function DisplayNodeUI(props: INodeProps<IDisplayNodeConfig, IDisplayNodeState, 
           placeholder="Empty"
           value={content}
           readOnly
-          className='nowheel nodrag max-h-[50vh]'
+          className='nowheel nodrag max-h-32'
         />
 
         {isText && (
