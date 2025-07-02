@@ -1,0 +1,149 @@
+{
+    "main": {
+        "id": "main",
+        "name": "示例流程",
+        "description": "一个包含多种节点类型的示例流程",
+        "nodes": [
+            {
+                "id": "start",
+                "type": "start",
+                "position": {
+                    "x": 50,
+                    "y": 50
+                },
+                "config": {
+                    "name": "开始",
+                    "description": "流程开始节点"
+                }
+            },
+            {
+                "id": "text1",
+                "type": "text",
+                "position": {
+                    "x": 200,
+                    "y": 50
+                },
+                "config": {
+                    "name": "用户问题",
+                    "description": "用户输入的问题文本",
+                    "text": "什么是人工智能？"
+                }
+            },
+            {
+                "id": "llm1",
+                "type": "llm",
+                "position": {
+                    "x": 400,
+                    "y": 50
+                },
+                "config": {
+                    "name": "AI助手",
+                    "description": "回答用户问题的LLM",
+                    "systemPrompt": "你是一个专业的AI助手，请用简洁清晰的方式回答用户的问题。",
+                    "model": "gpt-3.5-turbo"
+                }
+            },
+            {
+                "id": "python1",
+                "type": "python",
+                "position": {
+                    "x": 600,
+                    "y": 50
+                },
+                "config": {
+                    "name": "文本处理",
+                    "description": "处理LLM的回答",
+                    "code": "def main(response):\n    # 计算文本长度并添加总结\n    length = len(response)\n    summary = f\"回答长度: {length}字符\\n\\n原回答:\\n{response}\"\n    return summary",
+                    "params": [
+                        {
+                            "id": "param1",
+                            "name": "response"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "display1",
+                "type": "display",
+                "position": {
+                    "x": 800,
+                    "y": 50
+                },
+                "config": {
+                    "name": "显示结果",
+                    "description": "显示最终处理后的结果"
+                }
+            },
+            {
+                "id": "end",
+                "type": "end",
+                "position": {
+                    "x": 1000,
+                    "y": 50
+                },
+                "config": {
+                    "name": "结束",
+                    "description": "流程结束节点"
+                }
+            }
+        ],
+        "edges": [
+            {
+                "id": "edge1",
+                "source": {
+                    "node": "start",
+                    "key": "value"
+                },
+                "target": {
+                    "node": "text1",
+                    "key": "input"
+                }
+            },
+            {
+                "id": "edge2",
+                "source": {
+                    "node": "text1",
+                    "key": "text"
+                },
+                "target": {
+                    "node": "llm1",
+                    "key": "prompt"
+                }
+            },
+            {
+                "id": "edge3",
+                "source": {
+                    "node": "llm1",
+                    "key": "output"
+                },
+                "target": {
+                    "node": "python1",
+                    "key": "param1"
+                }
+            },
+            {
+                "id": "edge4",
+                "source": {
+                    "node": "python1",
+                    "key": "output"
+                },
+                "target": {
+                    "node": "display1",
+                    "key": "value"
+                }
+            },
+            {
+                "id": "edge5",
+                "source": {
+                    "node": "display1",
+                    "key": "value"
+                },
+                "target": {
+                    "node": "end",
+                    "key": "value"
+                }
+            }
+        ]
+    },
+    "flows": []
+}
