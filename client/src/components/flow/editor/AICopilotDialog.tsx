@@ -12,7 +12,7 @@ import configGlobal from '@/lib/config';
 import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL } from '@/lib/flow/flow';
 import { llmStream } from '@/lib/llm';
 import { Editor } from '@monaco-editor/react';
-import { Loader, PanelLeftClose, PanelRightClose } from 'lucide-react';
+import { Loader, PanelLeftClose, PanelRightClose, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -27,6 +27,12 @@ interface AICopilotDialogProps {
   newFlowNodeType: (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}
+
 function AICopilotDialog({
   isOpen,
   onClose,
@@ -39,7 +45,7 @@ function AICopilotDialog({
   const [prompt, setPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isShowAiPanel, setIsShowAiPanel] = useState(true);
-  const [response, setResponse] = useState('');
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [responseRef, setResponseRef] = useState<HTMLDivElement | null>(null);
   const [dslError, setDslError] = useState('');
 
@@ -60,20 +66,120 @@ function AICopilotDialog({
     }
   }, [dslString, nodeTypeMap, newFlowNodeType]);
 
-  // 自动滚动到响应区域底部
+  // Auto scroll to bottom of response area
   useEffect(() => {
     if (responseRef && isAiLoading) {
       responseRef.scrollTop = responseRef.scrollHeight;
     }
-  }, [response, responseRef, isAiLoading]);
+  }, [chatHistory, responseRef, isAiLoading]);
 
   const handleAiAction = async (withDslError: boolean = false) => {
-    if (isAiLoading) return;
+    if (isAiLoading || !prompt.trim()) return;
+    
     setIsAiLoading(true);
-    setResponse('');
+    
+    // Add user message to chat history
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: prompt.trim(),
+      timestamp: Date.now()
+    };
+    
+    setChatHistory(prev => [...prev, userMessage]);
+    setPrompt(''); // Clear input
 
-    const systemPrompt = `You are an AI assistant specialized in visual flow processing.
+    const systemPrompt = `You are an expert AI assistant specializing in collaboratively designing and building visual application flows.
 This visual flow system contains different types of nodes and edges between them. The user will provide a complete DSL (Domain Specific Language) representing the current flow.
+You need to use user's language (including the comments and mermaid diagrams).
+
+# Your Task
+Based on the user's question and the current flow DSL, you can:
+1. Analyze and explain the flow's functionality and structure
+2. Modify or extend the flow according to user requirements
+3. Generate an entirely new flow
+
+# Important Guidelines
+
+## 1. Ambiguity Handling
+- If the user's request is not specific enough or has ambiguity, **you must first ask for clarification** instead of making assumptions about the user's intent
+- For example: If the user says "create an AI flow", ask specifically what they want to do (text generation, image processing, data analysis, etc.)
+- If the user says "modify the flow" without specifying what to modify, ask for detailed requirements
+
+## 2. Steps for Creating New Flows
+When users request to create a new flow, you **must follow these steps**:
+
+a) **First, clarify the plan**: Explain in detail the flow's objectives, main steps, and logic
+b) **Then show a Mermaid diagram sketch**: Use flowchart syntax to show the flow structure
+c) **Finally generate the complete DSL**: Generate executable DSL based on the confirmed plan
+
+Mermaid example format:
+\`\`\`mermaid
+flowchart TD
+    A[Start] --> B[Text Input]
+    B --> C[LLM Processing]
+    C --> D[Display Result]
+    D --> E[End]
+\`\`\`
+
+## 3. Workflow
+1. **Understand and Analyze**: Carefully understand the user's request
+2. **Clarify Ambiguities**: If anything is unclear, ask for clarification first
+3. **Explain the Plan**: Detail what will be done (for new flow creation)
+4. **Mermaid Sketch**: Show flow structure with diagrams (for new flow creation)
+5. **Check Current DSL**: Check current DSL for errors and fix them if possible
+6. **Generate DSL**: Return the new DSL in a json code block in your response
+
+When the user requests modifications or generation of a new flow DSL, this returned DSL will be used directly by the system, so you must ensure that:
+- **Strictly follow the DSL structure**
+- **The DSL is complete and valid**
+- **Every node ID is unique**
+- **All connections follow the rules**
+- **Handle IDs match the node specifications exactly**
+- **Only return one DSL in a json block in your response**
+
+## Your Task
+Your primary goal is to work with the user **iteratively** through conversation.
+Instead of generating a complete solution at once, you will build upon the user's ideas step-by-step, refining the design until they are satisfied.
+Based on the user's question and the current flow DSL, you can:
+1. Analyze and explain the flow's functionality and structure
+2. Modify or extend the flow according to user requirements
+3. Generate an entirely new flow
+
+
+## Core Principles of Interaction
+
+1.  **Deconstruct and Iterate, Don't Generate All at Once.**
+    * When a user asks to create a new flow, **do not** provide a full plan, diagram, and code in one go.
+    * Instead, **propose a detailed plan and explaination first**.
+
+2.  **Clarify Ambiguity, Never Assume.**
+    * If any part of the user's request is unclear, you **must** ask clarifying questions before proceeding.
+    * **Your priority is to understand the user's true intent.** 
+
+3.  **Visualize Continuously with Mermaid.**
+    * Use Mermaid diagrams as a tool throughout the conversation to **visualize your current understanding** of the flow.
+    * After making a change or adding a node, you can show the updated, simple diagram to ensure you and the user are aligned. This is a communication tool, not just a final step.
+    * Format example:
+\`\`\`mermaid
+flowchart TD
+    A[Start] --> B[LLM Processing]
+    B --> C[Display Result]
+    C --> D[End]
+\`\`\`
+
+4.  **Confirm Before Generating Final Code.**
+    * Only after the design has been refined and the user is happy should you generate the final DSL.
+
+
+## Final DSL Output Requirements
+
+When the user gives final confirmation, you **must** generate the DSL according to these rules:
+- **Strictly follow the DSL structure**
+- **The DSL is complete and valid**
+- **Every node ID is unique**
+- **All connections follow the rules**
+- **Handle IDs match the node specifications exactly**
+- **Only return one DSL in a json block in your response**
 
 # DSL Structure
 The DSL is a JSON object with the following schema:
@@ -134,33 +240,16 @@ ${JSON.stringify(zodToJsonSchema(nodeType.configSchema, nodeType.id), null, 2)}
 \`\`\`
 `).join('\n\n')}
 
-# Your Task
-Based on the user's question and the current flow DSL, you can:
-1. Analyze and explain the flow's functionality and structure
-2. Modify or extend the flow according to user requirements
-3. Generate an entirely new flow
-
-When the user requests modifications or generation of a new flow DSL, this returned DSL will be used directly by the system, so you must ensure that:
-- **Strictly follow the DSL structure**
-- **The DSL is complete and valid**
-- **Every node ID is unique**
-- **All connections follow the rules**
-- **Handle IDs match the node specifications exactly**
-- **Only return one DSL in a json block in your response**
-
-# Workflow
-1. Think step by step and explain your analysis and plan, You need to answer in the language of the user's question
-2. Check the current DSL for errors, and fix them if possible
-3. Return the new DSL in a json block in your response. **Pay attention to the schema and connection rules**
 `;
 
     try {
-      let fullResponse = '';
-
-      const stream = llmStream(configGlobal.codeEditorModel, [
-        { role: 'system', content: systemPrompt },
+      // Build conversation history messages
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
         {
-          role: 'user', content: `${prompt}
+          role: 'user' as const, 
+          content: `${userMessage.content}
 
 Current DSL:
 \`\`\`json
@@ -169,33 +258,56 @@ ${dslString}
 
 ${withDslError ? `
 Current DSL Error:
-\`\`\`json
+\`\`\`
 ${dslError}
 \`\`\`
 ` : ''}
-` },
-      ]);
+` 
+        },
+      ];
+
+      let fullResponse = '';
+
+      const stream = llmStream(configGlobal.codeEditorModel, messages);
 
       for await (const chunk of stream) {
         fullResponse += chunk;
-        setResponse(fullResponse);
+        // Update assistant message in chat history in real-time
+        setChatHistory(prev => {
+          const newHistory = [...prev];
+          const lastMessage = newHistory[newHistory.length - 1];
+          if (lastMessage && lastMessage.role === 'assistant') {
+            lastMessage.content = fullResponse;
+          } else {
+            newHistory.push({
+              role: 'assistant',
+              content: fullResponse,
+              timestamp: Date.now()
+            });
+          }
+          return newHistory;
+        });
       }
 
       if (!fullResponse) {
         toast.error('AI returned empty response');
-        setResponse('AI returned empty response');
+        setChatHistory(prev => [...prev, {
+          role: 'assistant',
+          content: 'AI returned empty response',
+          timestamp: Date.now()
+        }]);
         return;
       }
 
-
+      // Try to extract and apply DSL from response
       try {
         const jsonMatches = [...fullResponse.matchAll(/```(?:json)?\s*\n([\s\S]*?)\n```/g)];
         if (jsonMatches.length > 0) {
           const lastMatch = jsonMatches[jsonMatches.length - 1];
           const extractedJson = lastMatch[1].trim();
-          // 验证提取的 JSON
+          // Validate the extracted JSON
           const parsedDSL = JSON.parse(extractedJson);
-          // 设置可编辑的 DSL
+          // Set the editable DSL
           setDslString(JSON.stringify(parsedDSL, null, 2));
           toast.success('DSL updated successfully');
         }
@@ -204,10 +316,19 @@ ${dslError}
       }
     } catch (error: any) {
       toast.error('AI processing failed: ' + error.message);
-      setResponse('Error: ' + error.message);
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: 'Error: ' + error.message,
+        timestamp: Date.now()
+      }]);
     } finally {
       setIsAiLoading(false);
     }
+  };
+
+  const clearChatHistory = () => {
+    setChatHistory([]);
+    toast.success('Chat history cleared');
   };
 
   const handleSave = () => {
@@ -256,24 +377,63 @@ ${dslError}
 
           {isShowAiPanel && (
             <div className="w-1/2 flex flex-col gap-2 px-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Chat History</span>
+                {chatHistory.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearChatHistory}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
               <div
                 ref={setResponseRef}
-                className="flex-1 min-h-0 overflow-auto border rounded-md px-4 text-sm"
+                className="flex-1 min-h-0 overflow-auto border rounded-md px-4 py-2 text-sm space-y-4"
               >
-                {response ? (
-                  <MarkdownRenderer content={response} />
-                ) : (
+                {chatHistory.length === 0 ? (
                   <div className="text-muted-foreground my-4">
                     You can ask the AI to explain the current flow, modify an existing flow, or create a new flow. For example:
                     <ul className="list-disc pl-8 mt-2 space-y-1">
                       <li>Analyze the functionality and structure of this flow</li>
                       <li>Add a new LLM node to the current flow</li>
                       <li>Create a web crawler flow</li>
+                      <li>Create an image processing flow</li>
                     </ul>
+                  </div>
+                ) : (
+                  chatHistory.map((message, index) => (
+                    <div key={index} className={`p-3 rounded-lg ${
+                      message.role === 'user' 
+                        ? 'bg-primary/10 ml-8' 
+                        : 'bg-muted/50 mr-8'
+                    }`}>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-medium">
+                          {message.role === 'user' ? 'User' : 'AI Assistant'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(message.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        {message.role === 'user' ? (
+                          <div className="whitespace-pre-wrap">{message.content}</div>
+                        ) : (
+                          <MarkdownRenderer content={message.content} />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isAiLoading && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader className="h-4 w-4 animate-spin" />
+                    <span>AI is thinking...</span>
                   </div>
                 )}
               </div>
-              {dslError &&
+              
+              {dslError && (
                 <div className="flex flex-col gap-2">
                   <div className="border rounded-md p-2 bg-red-600/10 overflow-y-auto max-h-24">
                     <pre className="text-wrap break-words text-red-600 text-sm">{dslError}</pre>
@@ -282,13 +442,19 @@ ${dslError}
                     Fix with AI
                   </Button>
                 </div>
-              }
+              )}
+              
               <Textarea
                 placeholder="Describe what you want to do with the flow..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="resize-none min-w-0 h-24"
                 disabled={isAiLoading}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    handleAiAction();
+                  }
+                }}
               />
               <Button
                 type="button"

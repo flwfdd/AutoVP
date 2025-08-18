@@ -3,9 +3,9 @@ const config = {
   llm: {
     baseURL: 'http://127.0.0.1:8000/openai',
     apiKey: '',
-    models: ['DeepSeek-V3', 'DeepSeek-R1', 'o4-mini', 'aws-claude-sonnet-4-20250514'],
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gpt-5-chat-latest', 'o4-mini', 'claude-sonnet-4-20250514'],
   },
-  codeEditorModel: 'aws-claude-sonnet-4-20250514',
+  codeEditorModel: 'gemini-2.5-flash',
 };
 
 export default config;

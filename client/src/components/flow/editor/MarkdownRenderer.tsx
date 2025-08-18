@@ -33,6 +33,50 @@ interface MarkdownRendererProps {
     className?: string;
 }
 
+// Mermaid渲染组件
+const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
+    const mermaid = {
+        code: code,
+        theme: 'default',
+    }
+    const jsonString = JSON.stringify(mermaid)
+    let binaryString = '';
+    const uint8Array = new TextEncoder().encode(jsonString);
+    uint8Array.forEach((byte) => {
+        binaryString += String.fromCharCode(byte);
+    });
+    const base64Encoded = btoa(binaryString);
+    const base64url = base64Encoded
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+    
+    const mermaidUrl = `https://mermaid.ink/svg/${base64url}`;
+    
+    return (
+        <div className="my-4 p-4 border rounded-lg bg-background">
+            <img 
+                src={mermaidUrl}
+                alt="Mermaid Diagram"
+                className="max-w-full max-h-96 mx-auto"
+                style={{ display: 'block' }}
+                onError={(e) => {
+                    // If image loading fails, show the original code
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                        const codeBlock = document.createElement('pre');
+                        codeBlock.className = 'bg-muted p-4 rounded text-sm overflow-auto';
+                        codeBlock.textContent = `Mermaid rendering failed, original code:\n${code}`;
+                        parent.appendChild(codeBlock);
+                    }
+                }}
+            />
+        </div>
+    );
+};
+
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className }) => {
     if (!content) {
         return <div className="text-center text-muted-foreground">No content to display</div>;
@@ -46,15 +90,23 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                     code(props) {
                         const { className, children, ...rest } = props;
                         const match = /language-(\w+)/.exec(className || '');
+                        const language = match ? match[1] : '';
+                        const codeString = String(children).replace(/\n$/, '');
+                        
+                        // 处理mermaid代码块
+                        if (language === 'mermaid') {
+                            return <MermaidRenderer code={codeString} />;
+                        }
+                        
                         return match ? (
                             <SyntaxHighlighter
                                 style={vscDarkPlus}
-                                language={match[1]}
+                                language={language}
                                 PreTag="div"
                                 customStyle={{ margin: '0', borderRadius: '4px' }}
                                 codeTagProps={{ style: { fontFamily: 'var(--font-mono)' } }}
                             >
-                                {String(children).replace(/\n$/, '')}
+                                {codeString}
                             </SyntaxHighlighter>
                         ) : (
                             <code className={`bg-muted px-1.5 py-0.5 rounded ${className}`} {...rest}>
