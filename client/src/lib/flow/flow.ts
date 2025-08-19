@@ -434,13 +434,13 @@ export function useNodeUIContext<C extends INodeConfig, S extends INodeState, I 
 }
 
 // 位置抽象
-const PositionSchema = z.object({
+export const PositionSchema = z.object({
   x: z.number(),
   y: z.number(),
 });
 
 // 节点 DSL Schema
-const NodeDSLSchema = z.object({
+export const NodeDSLSchema = z.object({
   id: z.string(),
   type: z.string(),
   position: PositionSchema.default({ x: 0, y: 0 }),
@@ -448,13 +448,13 @@ const NodeDSLSchema = z.object({
 });
 
 // 连接点 DSL Schema
-const HandleDSLSchema = z.object({
+export const HandleDSLSchema = z.object({
   node: z.string(),
   key: z.string(),
 });
 
 // 边 DSL Schema
-const EdgeDSLSchema = z.object({
+export const EdgeDSLSchema = z.object({
   id: z.string(),
   source: HandleDSLSchema,
   target: HandleDSLSchema,

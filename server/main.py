@@ -53,14 +53,31 @@ class ExecutionResult(BaseModel):
     duration_seconds: float | None = None
 
 # Pydantic models for OpenAI Chat Completions Proxy
+class ToolFunction(BaseModel):
+    name: str
+    arguments: str
+
+class ToolCall(BaseModel):
+    id: str
+    type: str = "function"
+    function: ToolFunction
+
+class Tool(BaseModel):
+    type: str = "function"
+    function: dict
+
 class OpenAIChatMessage(BaseModel):
     role: str
-    content: str
+    content: str | None = None
+    tool_calls: List[ToolCall] | None = None
+    tool_call_id: str | None = None
 
 class OpenAIChatCompletionsRequest(BaseModel):
     model: str = Field(..., example=OPENAI_DEFAULT_MODEL)
     messages: List[OpenAIChatMessage]
     stream: bool = Field(False, description="Whether to stream the response")
+    tools: List[Tool] | None = Field(None, description="Available tools for the model to call")
+    tool_choice: str | dict | None = Field(None, description="Controls which tool is called")
 
 class OpenAIUsage(BaseModel):
     prompt_tokens: int
@@ -81,9 +98,16 @@ class OpenAIChatCompletionsResponse(BaseModel):
     usage: OpenAIUsage | None = None
 
 # 流式响应的 Delta 模型
+class ToolCallDelta(BaseModel):
+    index: int | None = None
+    id: str | None = None
+    type: str | None = None
+    function: dict | None = None
+
 class OpenAIDelta(BaseModel):
     content: str | None = None
     role: str | None = None
+    tool_calls: List[ToolCallDelta] | None = None
 
 class OpenAIChatChoiceDelta(BaseModel):
     index: int
@@ -256,12 +280,23 @@ async def proxy_openai_chat_completions(
             # 流式响应
             async def generate_stream():
                 try:
-                    stream = await client.chat.completions.create(
-                        model=payload.model or OPENAI_DEFAULT_MODEL,
-                        messages=[msg.model_dump() for msg in payload.messages],
-                        max_tokens=MAX_TOKENS,
-                        stream=True,
-                    )
+                    # 构建请求参数
+                    request_params = {
+                        "model": payload.model or OPENAI_DEFAULT_MODEL,
+                        "messages": [msg.model_dump(exclude_none=True) for msg in payload.messages],
+                        "max_tokens": MAX_TOKENS,
+                        "stream": True,
+                    }
+                    
+                    # 如果有 tools，添加到请求中
+                    if payload.tools:
+                        request_params["tools"] = [tool.model_dump() for tool in payload.tools]
+                    
+                    # 如果有 tool_choice，添加到请求中
+                    if payload.tool_choice:
+                        request_params["tool_choice"] = payload.tool_choice
+                    
+                    stream = await client.chat.completions.create(**request_params)
                     async for chunk in stream:
                         chunk_data = chunk.model_dump()
                         yield f"data: {json.dumps(chunk_data)}\n\n"
@@ -273,16 +308,27 @@ async def proxy_openai_chat_completions(
             
             return StreamingResponse(
                 generate_stream(),
-                media_type="text/plain",
+                media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache"}
             )
         else:
             # 非流式响应
-            response = await client.chat.completions.create(
-                model=payload.model or OPENAI_DEFAULT_MODEL,
-                messages=[msg.model_dump() for msg in payload.messages],
-                max_tokens=MAX_TOKENS,
-            )
+            # 构建请求参数
+            request_params = {
+                "model": payload.model or OPENAI_DEFAULT_MODEL,
+                "messages": [msg.model_dump(exclude_none=True) for msg in payload.messages],
+                "max_tokens": MAX_TOKENS,
+            }
+            
+            # 如果有 tools，添加到请求中
+            if payload.tools:
+                request_params["tools"] = [tool.model_dump() for tool in payload.tools]
+            
+            # 如果有 tool_choice，添加到请求中
+            if payload.tool_choice:
+                request_params["tool_choice"] = payload.tool_choice
+            
+            response = await client.chat.completions.create(**request_params)
             return response.model_dump()
 
     except Exception as e:
