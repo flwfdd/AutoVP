@@ -61,9 +61,10 @@ import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeState, IFlowNodeTyp
 import { llmStream } from '@/lib/llm';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
+import { JsonNodeType } from '@/components/flow/JsonNode';
 
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, AgentNodeType];
+const basicNodeTypes = [TextNodeType, JsonNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, AgentNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 
