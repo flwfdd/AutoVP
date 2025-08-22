@@ -7,14 +7,15 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import configGlobal from '@/lib/config';
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, IFlowNodeType, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState } from '@/lib/flow/flow';
 import { react, ExecutableTool } from '@/lib/llm';
 import { Position } from '@xyflow/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { z } from 'zod';
 import { Textarea } from "../ui/textarea";
 import BaseNode from './base/BaseNode';
 import { MultiSelect } from '@/components/multi-select';
+import { getFlowNodeTypes, useFlowNodeTypes } from "@/lib/flow/use-flow-node-types";
 
 const AgentNodeInputSchema = BaseNodeInputSchema.extend({
     prompt: z.any().describe('prompt to send to the Agent, if the prompt is not a string, it will be converted to a string by JSON.stringify'),
@@ -35,14 +36,6 @@ const AgentNodeConfigSchema = BaseNodeConfigSchema.extend({
 type IAgentNodeConfig = z.infer<typeof AgentNodeConfigSchema>;
 
 interface IAgentNodeState extends IBaseNodeState { }
-
-// 全局变量来存储当前可用的流程类型 - 这是一个临时解决方案
-let globalFlowNodeTypes: Record<string, IFlowNodeType> = {};
-
-// 设置全局流程类型的函数
-export function setGlobalFlowNodeTypes(flowNodeTypes: Record<string, IFlowNodeType>) {
-    globalFlowNodeTypes = flowNodeTypes;
-}
 
 export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentNodeInput, IAgentNodeOutput> = {
     configSchema: AgentNodeConfigSchema,
@@ -78,7 +71,8 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
 
         // Create tools from selected flows
         const tools: ExecutableTool[] = context.config.toolFlowIds.map(flowId => {
-            const flowNodeType = globalFlowNodeTypes[flowId];
+            const flowNodeType = getFlowNodeTypes().find(flow => flow.id === flowId);
+
             if (!flowNodeType) {
                 throw new Error(`Flow with id "${flowId}" not found`);
             }
@@ -185,31 +179,19 @@ Think step by step and use tools when necessary to provide accurate answers.`;
 
 function AgentNodeUI(props: INodeProps<IAgentNodeConfig, IAgentNodeState, IAgentNodeInput, IAgentNodeOutput>) {
     const { config, setConfig } = useNodeUIContext(props);
-    const [availableFlows, setAvailableFlows] = useState<{ id: string; name: string; description: string }[]>([]);
+    const { flowNodeTypes } = useFlowNodeTypes();
 
-    // 获取可用的流程列表
+    // remove invalid flow ids from config.toolFlowIds
     useEffect(() => {
-        const flows = Object.values(globalFlowNodeTypes).map(flowType => ({
-            id: flowType.id,
-            name: flowType.name,
-            description: flowType.description
-        }));
-        setAvailableFlows(flows);
-    }, []); // 空依赖数组，因为我们通过全局变量获取
+        const availableFlowIds = new Set(flowNodeTypes.map(f => f.id));
+        const invalidFlowIds = config.toolFlowIds.filter(id => !availableFlowIds.has(id));
 
-    // 定期检查全局流程类型的变化
-    useEffect(() => {
-        const interval = setInterval(() => {
-            const flows = Object.values(globalFlowNodeTypes).map(flowType => ({
-                id: flowType.id,
-                name: flowType.name,
-                description: flowType.description
-            }));
-            setAvailableFlows(flows);
-        }, 1000); // 每秒检查一次
-
-        return () => clearInterval(interval);
-    }, []);
+        if (invalidFlowIds.length > 0) {
+            setConfig({
+                toolFlowIds: config.toolFlowIds.filter(id => availableFlowIds.has(id))
+            });
+        }
+    }, [flowNodeTypes, config.toolFlowIds, setConfig]);
 
     const handleModelChange = useCallback((modelValue: string) => {
         setConfig({ model: modelValue });
@@ -222,7 +204,7 @@ function AgentNodeUI(props: INodeProps<IAgentNodeConfig, IAgentNodeState, IAgent
         }
     }, [setConfig]);
 
-    const flowOptions = availableFlows.map(f => ({ value: f.id, label: f.name }));
+    const flowOptions = useMemo(() => flowNodeTypes.map(f => ({ value: f.id, label: f.name })), [flowNodeTypes]);
 
     return (
         <BaseNode
@@ -243,21 +225,20 @@ function AgentNodeUI(props: INodeProps<IAgentNodeConfig, IAgentNodeState, IAgent
             ]}
         >
             <div className="nodrag flex flex-col gap-2 p-2">
-                <Label htmlFor={`agent-system-prompt-input-${props.id}`}>System Prompt</Label>
+                <Label className="text-sm">System Prompt</Label>
                 <Textarea
-                    id={`agent-system-prompt-input-${props.id}`}
                     value={config.systemPrompt}
                     onChange={(e) => setConfig({ systemPrompt: e.target.value })}
                     className="nowheel nodrag whitespace-pre-wrap break-all max-h-32"
                     placeholder="You are a helpful AI agent..."
                 />
 
-                <Label htmlFor={`agent-model-select-${props.id}`}>Model</Label>
+                <Label className="text-sm">Model</Label>
                 <Select
                     value={config.model}
                     onValueChange={handleModelChange}
                 >
-                    <SelectTrigger id={`agent-model-select-${props.id}`} className="w-full">
+                    <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
@@ -274,25 +255,29 @@ function AgentNodeUI(props: INodeProps<IAgentNodeConfig, IAgentNodeState, IAgent
                     </SelectContent>
                 </Select>
 
-                <Label htmlFor={`agent-max-iterations-${props.id}`}>Max Iterations</Label>
-                <input
-                    id={`agent-max-iterations-${props.id}`}
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={config.maxIterations}
-                    onChange={(e) => handleMaxIterationsChange(e.target.value)}
-                    className="w-full px-2 py-1 border rounded text-sm"
-                />
-
-                <Label>Tool Flows</Label>
+                <Label className="text-sm">Tool Flows</Label>
                 <MultiSelect
                     options={flowOptions}
                     onValueChange={(values: string[]) => setConfig({ toolFlowIds: values })}
                     defaultValue={config.toolFlowIds}
                     placeholder="Select tool flows..."
                     searchable
+                    maxWidth="200px"
                 />
+
+                {config.toolFlowIds.length > 0 && (
+                    <>
+                        <Label className="text-sm">Max Iterations</Label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={config.maxIterations}
+                            onChange={(e) => handleMaxIterationsChange(e.target.value)}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                        />
+                    </>
+                )}
             </div>
         </BaseNode>
     );

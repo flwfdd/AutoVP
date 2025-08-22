@@ -26,11 +26,10 @@ import AICopilotDialog from '@/components/flow/editor/AICopilotDialog';
 import MarkdownRenderer from "@/components/flow/editor/MarkdownRenderer";
 import { ImageNodeType } from '@/components/flow/ImageNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
-import { LLMNodeType } from "@/components/flow/LLMNode";
 import TimelineLog from "@/components/flow/log/TimelineLog";
 import { PythonNodeType } from '@/components/flow/PythonNode';
 import { TextNodeType } from '@/components/flow/TextNode';
-import { AgentNodeType, setGlobalFlowNodeTypes } from "@/components/flow/AgentNode";
+import { AgentNodeType } from "@/components/flow/AgentNode";
 import { useTheme } from "@/components/theme-provider";
 import {
   AlertDialog,
@@ -62,9 +61,10 @@ import { llmStream } from '@/lib/llm';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { JsonNodeType } from '@/components/flow/JsonNode';
+import { useFlowNodeTypes } from '@/lib/flow/use-flow-node-types';
 
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, JsonNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, AgentNodeType];
+const basicNodeTypes = [AgentNodeType, TextNodeType, JsonNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, BranchNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 
@@ -95,21 +95,10 @@ const initialNodes: Node[] = [
 ];
 const initialEdges: Edge[] = [];
 
-const initialFlowNodeTypes: IFlowNodeType[] = [];
-
 function Flow() {
+  const { flowNodeTypes, setFlowNodeTypes } = useFlowNodeTypes();
   // 注册节点类型
-  const [flowNodeTypes, setFlowNodeTypes] = useState(initialFlowNodeTypes);
   const allNodeTypes = useMemo(() => [...basicNodeTypes, ...specialNodeTypes, ...flowNodeTypes], [flowNodeTypes]);
-
-  // 更新全局流程类型，供 Agent 节点使用
-  useEffect(() => {
-    const flowTypeMap = flowNodeTypes.reduce<Record<string, IFlowNodeType>>((acc, ft) => {
-      acc[ft.id] = ft;
-      return acc;
-    }, {});
-    setGlobalFlowNodeTypes(flowTypeMap);
-  }, [flowNodeTypes]);
   const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
     acc[nodeType.id] = nodeType;
     return acc;
