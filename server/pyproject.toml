@@ -11,3 +11,9 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "uvicorn[standard]>=0.34.2",
 ]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "flake8>=7.3.0",
+]
