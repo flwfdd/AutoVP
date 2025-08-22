@@ -30,6 +30,7 @@ import { LLMNodeType } from "@/components/flow/LLMNode";
 import TimelineLog from "@/components/flow/log/TimelineLog";
 import { PythonNodeType } from '@/components/flow/PythonNode';
 import { TextNodeType } from '@/components/flow/TextNode';
+import { AgentNodeType, setGlobalFlowNodeTypes } from "@/components/flow/AgentNode";
 import { useTheme } from "@/components/theme-provider";
 import {
   AlertDialog,
@@ -62,7 +63,7 @@ import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // 注册节点类型
-const basicNodeTypes = [TextNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType];
+const basicNodeTypes = [TextNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, LLMNodeType, BranchNodeType, AgentNodeType];
 const specialNodeTypes = [StartNodeType, EndNodeType];
 
 
@@ -99,6 +100,15 @@ function Flow() {
   // 注册节点类型
   const [flowNodeTypes, setFlowNodeTypes] = useState(initialFlowNodeTypes);
   const allNodeTypes = useMemo(() => [...basicNodeTypes, ...specialNodeTypes, ...flowNodeTypes], [flowNodeTypes]);
+
+  // 更新全局流程类型，供 Agent 节点使用
+  useEffect(() => {
+    const flowTypeMap = flowNodeTypes.reduce<Record<string, IFlowNodeType>>((acc, ft) => {
+      acc[ft.id] = ft;
+      return acc;
+    }, {});
+    setGlobalFlowNodeTypes(flowTypeMap);
+  }, [flowNodeTypes]);
   const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
     acc[nodeType.id] = nodeType;
     return acc;
