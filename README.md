@@ -1,38 +1,25 @@
 # AutoVP
 
-## Setup
+## Getting Started
 
-### Server side
+### Quick Start
 
-Install [uv](https://docs.astral.sh/uv/).
+The easiest way to get started is to use the startup script:
 
-Install dependencies.
 ```bash
-uv sync
+bash start.sh
 ```
 
-Build the python runner image.
-```bash
-docker build -f PythonRunnerDockerfile -t python-runner .
-```
+This script will:
+- Check that [Node.js](https://nodejs.org/), [Python](https://www.python.org/downloads/), [pnpm](https://pnpm.io/), and [uv](https://docs.astral.sh/uv/) are installed
+- Install frontend and backend dependencies
+- Build Python docker image for backend
+- Start both the client and server automatically
+- Open the application at http://localhost:5173/
 
-Edit `server/.env` config file.
+### Manual Setup
 
-Run the server.
-```bash
-uv run uvicorn main:app --reload
-```
+If you prefer to launch the components manually:
 
-### Client side
-
-Install dependencies.
-```bash
-pnpm install
-```
-
-Edit `client/src/lib/config.ts` config file.
-
-Run the client.
-```bash
-pnpm dev
-```
+- See [`./client/README.md`](./client/README.md) for how to setup the client.
+- See [`./server/README.md`](./server/README.md) for how to setup the server.

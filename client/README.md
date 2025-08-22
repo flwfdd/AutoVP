@@ -7,6 +7,21 @@ Currently, two official plugins are available:
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
+## How to Use
+
+Before launching the client, make sure you have [node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/) installed.
+
+To launch the server, you need to:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+If you see your browser automatically opening the page http://localhost:5173/, the client is successfully launched 🚀.
+
+Edit `client/src/lib/config.ts` config file.
+
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
