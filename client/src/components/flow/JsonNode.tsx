@@ -74,6 +74,9 @@ function JsonNodeUI(props: INodeProps<IJsonNodeConfig, IJsonNodeState, IJsonNode
         onChange={onChange}
         className={`nowheel nodrag max-h-32 ${invalidJson ? ' focus-visible:ring-red-500/50' : ''}`}
       />
+      {invalidJson && (
+        <p className="text-xs text-red-500 mt-1">Invalid JSON</p>
+      )}
     </BaseNode>
   );
 }
