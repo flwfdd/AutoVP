@@ -202,7 +202,7 @@ export async function runFlow(
   const edges = edgeList.reduce<Record<string, IEdgeRun>>((acc, edge) => {
     acc[edge.id] = {
       ...edge,
-      value: {},
+      value: undefined,
     }
     return acc;
   }, {});
@@ -234,7 +234,9 @@ export async function runFlow(
     try {
       // 从边获取输入
       const input = node.inputEdges.reduce<Record<string, any>>((acc, edge) => {
-        acc[edge.target.key] = edges[edge.id].value;
+        if (edges[edge.id].value !== undefined) {
+          acc[edge.target.key] = edges[edge.id].value;
+        }
         return acc;
       }, {});
       node.runState.input = input;
@@ -347,6 +349,14 @@ export async function runFlow(
       // 更新目标节点等待数
       const targetNode = nodes[edge.target.node.id];
       targetNode.waitNum--;
+
+      // 特殊处理 end 节点 只要有一个输入就执行
+      if (targetNode.id === endNodeId) {
+        const targetRun = runNode(targetNode);
+        activeNodeRuns.set(targetNode.id, targetRun);
+        downstreamPromises.push(targetRun);
+        return;
+      }
 
       // 如果目标节点的所有输入都准备好了，开始执行该节点
       if (targetNode.waitNum === 0 && !activeNodeRuns.has(targetNode.id)) {

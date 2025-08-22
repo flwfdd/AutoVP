@@ -18,7 +18,7 @@ interface LabelHandleProps extends HandleProps {
 const LabelHandle = (props: LabelHandleProps) => {
   const [id] = useState(props.id ? props.id : generateId());
   const connections = useNodeConnections({ handleId: id, handleType: props.type })
-  const limit = useMemo(() => props.limit ? props.limit : props.type === 'target' ? 1 : 0, [props.limit, props.type])
+  const limit = useMemo(() => props.limit !== undefined ? props.limit : props.type === 'target' ? 1 : 0, [props.limit, props.type])
 
   const handle = (<Handle
     {...props}

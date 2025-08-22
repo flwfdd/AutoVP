@@ -23,7 +23,7 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
   configSchema: EndNodeConfigSchema,
   id: 'end',
   name: 'End',
-  description: 'End node is the only ending node of the flow.',
+  description: 'End node can be connected to multiple nodes.\nThe output is the first executed node\'s output.',
   defaultConfig: {
     name: 'End',
     description: '',
@@ -46,6 +46,7 @@ function EndNodeUI(props: INodeProps<IEndNodeConfig, IEndNodeState, IEndNodeInpu
           id: 'value',
           type: 'target',
           position: Position.Left,
+          limit: 0,
         }
       ]}
     >
