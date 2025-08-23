@@ -4,19 +4,19 @@
 
 Before launching the server, make sure you have Python (>= 3.12) and [uv](https://docs.astral.sh/uv/) installed.
 
-Install dependencies:
+1. Install dependencies:
 ```bash
 uv sync
 ```
 
-Build the python runner image in `./docker`:
+2. Build the python runner image in `./docker`:
 ```bash
 docker build -f PythonRunnerDockerfile -t python-runner .
 ```
 
-Edit `server/.env` config file.
+3. Create a `./.env` config file according to fields described in `./.env.example`. 
 
-Run the server:
+4. Run the server:
 ```bash
 uv run uvicorn main:app --reload
 ```
