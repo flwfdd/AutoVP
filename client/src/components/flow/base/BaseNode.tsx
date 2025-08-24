@@ -107,6 +107,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
   const { config, state, runState, setConfig, setState } = useNodeUIContext(props);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -122,6 +123,8 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
     setState({ ...state, reviewed: true });
   };
 
+  const hasDescription = config.description && config.description.trim().length > 0;
+
   return (
     <div>
       <Card
@@ -129,7 +132,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
         tabIndex={-1}
         onFocus={handleFocus}
       >
-        <CardHeader className="flex items-center justify-between p-2">
+        <CardHeader className="flex items-center justify-between p-2 pb-0">
           <div className="flex items-center gap-1 min-w-0">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -140,16 +143,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className='text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{config.name}</span>
-              </TooltipTrigger>
-              {config.description && (
-                <TooltipContent>
-                  <p className='max-w-xs whitespace-pre-wrap'>{config.description}</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <span className='text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{config.name}</span>
           </div>
           <div className="flex items-center">
             <EditNodeDialog
@@ -189,7 +183,22 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
             </Dialog>
           </div>
         </CardHeader>
-        <Separator />
+
+        {hasDescription && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mx-1 p-2 text-xs text-muted-foreground text-left h-auto hover:text-foreground"
+            onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+            title={isDescriptionExpanded ? "Collapse description" : "Expand description"}
+          >
+            <p className={isDescriptionExpanded ? "whitespace-pre-wrap" : "truncate"}>
+              {config.description}
+            </p>
+          </Button>
+        )}
+
+        <Separator className="mt-1" />
         {handles
           .filter((handle) => handle.type === 'target')
           .map((handle, index) => (
