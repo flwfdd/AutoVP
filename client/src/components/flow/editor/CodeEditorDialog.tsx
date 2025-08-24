@@ -24,6 +24,7 @@ interface CodeEditorDialogProps {
   language: 'javascript' | 'python';
   title: string;
   systemPrompt: string;
+  runLogs?: string;
 }
 
 function CodeEditorDialog({
@@ -34,6 +35,7 @@ function CodeEditorDialog({
   language,
   title,
   systemPrompt,
+  runLogs,
 }: CodeEditorDialogProps) {
   const [internalCode, setInternalCode] = useState(code);
   const [prompt, setPrompt] = useState('');
@@ -67,9 +69,13 @@ function CodeEditorDialog({
     try {
       let fullResponse = '';
 
+      const userPrompt = `${prompt}\n\nCurrent Code:\`\`\`${language}\n${internalCode}\`\`\``
+        + (runLogs ? `\n\nExecution Logs:\`\`\`\n${runLogs}\`\`\`` : '');
+
+
       const stream = llmStream(configGlobal.codeEditorModel, [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `${prompt}\n\nCurrent Code:\`\`\`${language}\n${internalCode}\`\`\`` },
+        { role: 'user', content: userPrompt },
       ]);
 
       for await (const chunk of stream) {

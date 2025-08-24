@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // 在web worker中执行js代码
-export async function workerEval(code: string, params: Record<string, any>) {
+export async function workerEval(code: string, params: Record<string, any>): Promise<{ output: any; logs: string[] }> {
   const worker = new Worker(new URL('./js-runner.worker.ts', import.meta.url), {
     type: 'module'
   });
@@ -18,7 +18,7 @@ export async function workerEval(code: string, params: Record<string, any>) {
     worker.onmessage = (event: MessageEvent<WorkerOutput>) => {
       const message = event.data;
       if (message.type === 'result') {
-        resolve(message.data);
+        resolve({ output: message.data, logs: message.logs });
       } else if (message.type === 'error') {
         reject(new Error(message.message));
       }

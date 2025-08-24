@@ -25,6 +25,11 @@ const codeDescription = `
 The code will be executed directly within an async function. 
 Any parameters defined for the node can be used directly as variables within the code.
 The value returned by the code will be the output of the node.
+
+**Important Notes:**
+- You can use console.log() statements for debugging - they will be captured as logs but won't affect the output
+- The return value will be the actual output of the node
+
 For example, if there is a parameter "name", and we want to output the result of "Hello, {name}!", the code should be:
 \`\`\`javascript
 return \`Hello, \${name}!\`;
@@ -42,7 +47,9 @@ const JavaScriptNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IJavaScriptNodeConfig = z.infer<typeof JavaScriptNodeConfigSchema>;
 
-interface IJavaScriptNodeState extends INodeState { }
+interface IJavaScriptNodeState extends INodeState {
+  fullOutput?: string; // run logs
+}
 
 export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput> = {
   configSchema: JavaScriptNodeConfigSchema,
@@ -52,8 +59,8 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
-  defaultState: BaseNodeDefaultState,
-  logFormatter: ((config: IJavaScriptNodeConfig, _state: INodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
+  defaultState: { ...BaseNodeDefaultState, fullOutput: '' },
+  logFormatter: ((config: IJavaScriptNodeConfig, state: IJavaScriptNodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
     return {
       ...log,
       // 将input的key转换为param的name
@@ -61,12 +68,14 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
         acc[config.params?.find(param => param.id === key)?.name || key] = value;
         return acc;
       }, {}), null, 2),
-      output: JSON.stringify(log.output?.output, null, 2),
+      // 显示完整的输出内容（包括所有console.log输出）
+      output: state.fullOutput ? state.fullOutput : JSON.stringify(log.output?.output, null, 2),
       error: log.error || ''
     };
   }),
   ui: JavaScriptNodeUI,
   async run(context: INodeContext<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput>): Promise<IJavaScriptNodeOutput> {
+    context.updateState({ ...context.state, fullOutput: '' });
     const params = context.config.params.reduce<Record<string, any>>((acc, param) => {
       if (context.input[param.id] === undefined) {
         throw new Error(`Input ${param.name} is undefined`);
@@ -74,8 +83,17 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
       acc[param.name] = context.input[param.id];
       return acc;
     }, {});
-    const output = await workerEval(context.config.code, params);
-    return { output: output };
+
+    const result = await workerEval(context.config.code, params);
+
+    // 将完整输出（包括日志）存储到 state 中
+    const fullOutput = result.logs.length > 0
+      ? result.logs.join('\n') + '\n\nOutput:\n' + JSON.stringify(result.output, null, 2)
+      : JSON.stringify(result.output, null, 2);
+
+    context.updateState({ ...context.state, fullOutput });
+
+    return { output: result.output };
   }
 };
 
@@ -110,7 +128,7 @@ const ParamLabel = React.memo(({
 });
 
 function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
+  const { config, setConfig, runState } = useNodeUIContext(props);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const systemPrompt = useMemo(() => {
@@ -194,6 +212,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')} .`;
         language="javascript"
         title="Edit JavaScript Code"
         systemPrompt={systemPrompt}
+        runLogs={JSON.stringify(runState.logs)}
       />
     </BaseNode>
   );

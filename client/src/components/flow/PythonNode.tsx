@@ -35,8 +35,12 @@ def main(name):
   return f"Hello, {name}!"
 \`\`\`
 However, you **should not** output the main function, just output the code in it directly.
-The 3rd-party packages you can use are: requests, beautifulsoup4, numpy, matplotlib. **IMPORTANT: DO NOT use non-ascii characters(e.g. CJK) in matplotlib plot, it will cause error**
-If you want to output an image, you should convert the image to a url or base64 src then return it.
+
+**Important Notes:**
+- You can use print() statements for debugging - they will be captured as logs but won't affect the output
+- The return value will be the actual output of the node
+- If you want to output an image, you should convert the image to a url or base64 src then return it.
+- The 3rd-party packages you can **ONLY** use are: requests, beautifulsoup4, numpy, matplotlib. **IMPORTANT: DO NOT use non-ascii characters(e.g. CJK) in matplotlib plot, it will cause error**
 `;
 
 const PythonNodeConfigSchema = BaseNodeConfigSchema.extend({
@@ -50,7 +54,9 @@ const PythonNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IPythonNodeConfig = z.infer<typeof PythonNodeConfigSchema>;
 
-interface IPythonNodeState extends INodeState { }
+interface IPythonNodeState extends INodeState {
+  fullOutput?: string; // run logs
+}
 
 interface ExecutionResult {
   output: string | null;
@@ -82,8 +88,8 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
   name: 'Python',
   description: 'Python node runs code in a function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New Python', description: '', code: '', params: [] },
-  defaultState: BaseNodeDefaultState,
-  logFormatter: ((config: IPythonNodeConfig, _state: INodeState, log: INodeRunLog<IPythonNodeInput, IPythonNodeOutput>) => {
+  defaultState: { ...BaseNodeDefaultState, fullOutput: '' },
+  logFormatter: ((config: IPythonNodeConfig, state: IPythonNodeState, log: INodeRunLog<IPythonNodeInput, IPythonNodeOutput>) => {
     return {
       ...log,
       // 将input的key转换为param的name
@@ -91,12 +97,13 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
         acc[config.params?.find(param => param.id === key)?.name || key] = value;
         return acc;
       }, {}), null, 2),
-      output: JSON.stringify(log.output?.output, null, 2),
+      output: state.fullOutput ? state.fullOutput : JSON.stringify(log.output?.output, null, 2),
       error: log.error || '',
     };
   }),
   ui: PythonNodeUI,
   async run(context: INodeContext<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput>): Promise<IPythonNodeOutput> {
+    context.updateState({ ...context.state, fullOutput: '' });
     let params = [];
 
     for (const param of context.config.params) {
@@ -108,7 +115,21 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
 
     const mainCode = `def main(${params.join(',')}):\n${context.config.code.replace(/^/gm, '  ')}`;
 
-    const fullCode = `import json\n${mainCode}\nprint(json.dumps(main(),ensure_ascii=False))`;
+    // warp the output with special tags
+    const START_TAG = '<===PYTHON_OUTPUT_START===>';
+    const END_TAG = '<===PYTHON_OUTPUT_END===>';
+    const fullCode = `import json
+${mainCode}
+try:
+    result = main()
+    print("${START_TAG}")
+    print(json.dumps(result, ensure_ascii=False))
+    print("${END_TAG}")
+except Exception as e:
+    print("${START_TAG}")
+    print(json.dumps({"error": str(e)}, ensure_ascii=False))
+    print("${END_TAG}")`;
+
     console.log("Executing Python code:\n", fullCode);
 
     const result = await runPythonCode(fullCode);
@@ -122,7 +143,31 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
       throw new Error('No output from Python script.');
     }
 
-    return { output: JSON.parse(result.output) };
+    // 将完整输出存储到 state 中
+    context.updateState({ ...context.state, fullOutput: result.output });
+
+    // 解析输出，提取特殊标记之间的内容
+    const outputText = result.output;
+    const outputMatch = outputText.match(new RegExp(`${START_TAG}\\n([\\s\\S]*?)\\n${END_TAG}`));
+
+    if (!outputMatch) {
+      throw new Error('Could not find output result in Python script execution.');
+    }
+
+    const jsonOutput = outputMatch[1].trim();
+
+    try {
+      const parsedOutput = JSON.parse(jsonOutput);
+
+      // 检查是否有错误
+      if (parsedOutput.error) {
+        throw new Error(`Python script error: ${parsedOutput.error}`);
+      }
+
+      return { output: parsedOutput };
+    } catch (parseError) {
+      throw new Error(`Failed to parse Python output: ${parseError}\nOutput: ${jsonOutput}`);
+    }
   }
 };
 
@@ -157,7 +202,7 @@ const ParamLabel = React.memo(({
 });
 
 function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput, IPythonNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
+  const { config, setConfig, state } = useNodeUIContext(props);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const systemPrompt = useMemo(() => {
@@ -238,6 +283,7 @@ Available params are: ${config.params.map(param => param.name).join(', ')} .`;
         language="python"
         title="Edit Python Code"
         systemPrompt={systemPrompt}
+        runLogs={state.fullOutput}
       />
     </BaseNode>
   );
