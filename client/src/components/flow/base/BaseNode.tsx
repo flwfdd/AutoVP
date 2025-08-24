@@ -3,19 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { cn } from "@/lib/utils";
@@ -24,83 +19,8 @@ import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lu
 import { useEffect, useRef, useState } from "react";
 import NodeRunLogDetail from "../log/NodeRunLogDetail";
 import LabelHandle from './LabelHandle';
+import EditInfoDialog from '../editor/EditInfoDialog';
 
-
-interface EditNodeDialogProps<C extends INodeConfig> {
-  nodeType: INodeType<any, any, any, any>;
-  config: C;
-  setConfig: (newConfig: Partial<C>) => void;
-}
-
-function EditNodeDialog<C extends INodeConfig>(
-  { nodeType, config, setConfig }: EditNodeDialogProps<C>
-) {
-  const [name, setName] = useState(config.name);
-  const [description, setDescription] = useState(config.description || '');
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleSave = () => {
-    setConfig({ ...config, name, description });
-    setIsOpen(false);
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      setName(config.name);
-      setDescription(config.description || '');
-    }
-  }, [isOpen, config]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" title="Edit Node Info">
-          <Pencil />
-        </Button>
-      </DialogTrigger>
-
-      <DialogContent className="max-w-[400px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Edit Node
-          </DialogTitle>
-          <DialogDescription>
-            Type: {nodeType.name}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">
-              Name
-            </Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="description">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary">Cancel</Button>
-          </DialogClose>
-          <Button type="button" onClick={handleSave}>Save</Button>
-        </DialogFooter>
-      </DialogContent >
-    </Dialog >
-  );
-}
 
 function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends IBaseNodeInput, O extends IBaseNodeOutput>(props: INodeProps<C, S, I, O>) {
   const { nodeType, handles = [], children } = props;
@@ -108,6 +28,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   const prevHandlesRef = useRef<string[]>([]);
   const { config, state, runState, setConfig, setState } = useNodeUIContext(props);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -124,6 +45,10 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   };
 
   const hasDescription = config.description && config.description.trim().length > 0;
+
+  const handleSaveEdit = (name: string, description: string) => {
+    setConfig({ ...config, name, description });
+  };
 
   return (
     <div>
@@ -143,14 +68,24 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
               </TooltipContent>
             </Tooltip>
 
-            <span className='text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{config.name}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className='text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis'>{config.name}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className='max-w-xs whitespace-pre-wrap'>{config.name}</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <div className="flex items-center">
-            <EditNodeDialog
-              nodeType={nodeType}
-              config={config}
-              setConfig={setConfig}
-            />
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit Node Info"
+              onClick={() => setIsEditDialogOpen(true)}
+            >
+              <Pencil />
+            </Button>
 
             <Dialog>
               <DialogTrigger asChild>
@@ -192,7 +127,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
             onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
             title={isDescriptionExpanded ? "Collapse description" : "Expand description"}
           >
-            <p className={isDescriptionExpanded ? "whitespace-pre-wrap" : "truncate"}>
+            <p className={cn("w-full", isDescriptionExpanded ? "whitespace-pre-wrap" : "truncate")}>
               {config.description}
             </p>
           </Button>
@@ -229,6 +164,20 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
             />
           ))}
       </Card>
+
+      <EditInfoDialog
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        title="Edit Node"
+        subtitle={`Type: ${nodeType.name}`}
+        name={config.name}
+        descriptionText={config.description || ''}
+        contextPrompt={`Node Type: ${nodeType.name}
+Node Name: ${config.name}
+Node Description: ${config.description || 'No description'}
+Node Config: ${JSON.stringify(config)}`}
+        onSave={handleSaveEdit}
+      />
     </div >
   );
 }

@@ -23,6 +23,7 @@ import { StartNodeType } from "@/components/flow/base/StartNode";
 import { BranchNodeType } from '@/components/flow/BranchNode';
 import { DisplayNodeType } from "@/components/flow/DisplayNode";
 import AICopilotDialog from '@/components/flow/editor/AICopilotDialog';
+import EditInfoDialog from '@/components/flow/editor/EditInfoDialog';
 import MarkdownRenderer from "@/components/flow/editor/MarkdownRenderer";
 import { ImageNodeType } from '@/components/flow/ImageNode';
 import { JavaScriptNodeType } from "@/components/flow/JavaScriptNode";
@@ -46,22 +47,20 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from "@/components/ui/textarea";
 import configGlobal from "@/lib/config";
-import { defaultNodeRunState, dumpDSL, IDSL, IEdge, IFlowNodeState, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
+import { defaultNodeRunState, dumpDSL, dumpFlow, IDSL, IEdge, IFlowNodeState, IFlowNodeType, INode, INodeConfig, INodeInput, INodeOutput, INodeState, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, loadDSL, runFlow } from '@/lib/flow/flow';
 import { llmStream } from '@/lib/llm';
 import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { JsonNodeType } from '@/components/flow/JsonNode';
 import { useFlowNodeTypes } from '@/lib/flow/use-flow-node-types';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // 注册节点类型
 const basicNodeTypes = [AgentNodeType, TextNodeType, JsonNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, BranchNodeType];
@@ -134,7 +133,6 @@ function Flow() {
   // 对话框
   const [isEditFlowDialogOpen, setIsEditFlowDialogOpen] = useState(false);
   const [editingFlowInfoType, setEditingFlowInfoType] = useState<IFlowNodeType | null>(null);
-  const [editFlowInfo, setEditFlowInfo] = useState<{ name: string, description: string }>({ name: '', description: '' });
 
   const [isDeleteFlowDialogOpen, setIsDeleteFlowDialogOpen] = useState(false);
   const [deletingFlowType, setDeletingFlowType] = useState<IFlowNodeType | null>(null);
@@ -354,17 +352,16 @@ function Flow() {
 
   const handleOpenEditFlowInfoDialog = useCallback((flowType: IFlowNodeType) => {
     setEditingFlowInfoType(flowType);
-    setEditFlowInfo({ name: flowType.name, description: flowType.description });
     setIsEditFlowDialogOpen(true);
-  }, [setEditingFlowInfoType, setEditFlowInfo, setIsEditFlowDialogOpen]);
+  }, [setEditingFlowInfoType, setIsEditFlowDialogOpen]);
 
-  const handleSaveEditFlowInfo = useCallback(() => {
+  const handleSaveEditFlowInfo = useCallback((name: string, description: string) => {
     if (!editingFlowInfoType) return;
     setFlowNodeTypes(prevTypes =>
       prevTypes.map(ft => {
         if (ft.id === editingFlowInfoType.id) {
-          ft.name = editFlowInfo.name;
-          ft.description = editFlowInfo.description;
+          ft.name = name;
+          ft.description = description;
         }
         return ft;
       })
@@ -372,7 +369,7 @@ function Flow() {
     setIsEditFlowDialogOpen(false);
     setEditingFlowInfoType(null);
     toast.success(`Flow info updated.`);
-  }, [editingFlowInfoType, editFlowInfo, setFlowNodeTypes, setIsEditFlowDialogOpen, setEditingFlowInfoType]);
+  }, [editingFlowInfoType, setFlowNodeTypes, setIsEditFlowDialogOpen, setEditingFlowInfoType]);
 
   const handleOpenDeleteFlowDialog = useCallback((flowType: IFlowNodeType) => {
     setDeletingFlowType(flowType);
@@ -469,8 +466,17 @@ function Flow() {
     const newDescription = `Custom flow type created on ${new Date().toLocaleString()}`;
     const flowNodeType = newFlowNodeType(newId, newName, newDescription, iNodes, iEdges);
     setFlowNodeTypes(prevTypes => [...prevTypes, flowNodeType]);
+
+    // 重置主流程到初始状态
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+
+    // 自动弹出编辑窗口
+    setEditingFlowInfoType(flowNodeType);
+    setIsEditFlowDialogOpen(true);
+
     toast.info(`New flow type "${newName}" added.`);
-  }, [flowNodeTypes, nodes, edges, toINode, toIEdge]);
+  }, [flowNodeTypes, nodes, edges, toINode, toIEdge, setFlowNodeTypes, setNodes, setEdges, setEditingFlowInfoType, setIsEditFlowDialogOpen]);
 
 
   return (
@@ -522,7 +528,7 @@ function Flow() {
           <Separator className="mt-2" />
         </div>
 
-        <div className="p-4 overflow-y-auto">
+        <ScrollArea className="p-4 min-h-0">
           <div className="flex flex-col">
             <div className="text-lg font-bold">Nodes</div>
             <div className="text-sm text-muted-foreground">Drag and drop to add nodes</div>
@@ -569,7 +575,7 @@ function Flow() {
                 ))}
             </div>
           </div>
-        </div>
+        </ScrollArea>
       </div>
       <ReactFlow
         nodes={nodes}
@@ -596,44 +602,19 @@ function Flow() {
         onChange={handleFileChange}
       />
 
-      <Dialog open={isEditFlowDialogOpen} onOpenChange={setIsEditFlowDialogOpen}>
-        <DialogContent className="max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Flow</DialogTitle>
-            <DialogDescription>
-              ID: {editingFlowInfoType?.id}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="flow-name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="flow-name"
-                value={editFlowInfo.name}
-                onChange={(e) => setEditFlowInfo({ ...editFlowInfo, name: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="flow-description" className="text-right">
-                Description
-              </Label>
-              <Input
-                id="flow-description"
-                value={editFlowInfo.description}
-                onChange={(e) => setEditFlowInfo({ ...editFlowInfo, description: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setIsEditFlowDialogOpen(false)}>Cancel</Button>
-            <Button type="button" onClick={handleSaveEditFlowInfo}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditInfoDialog
+        isOpen={isEditFlowDialogOpen}
+        onOpenChange={setIsEditFlowDialogOpen}
+        title="Edit Flow"
+        subtitle={`ID: ${editingFlowInfoType?.id}`}
+        name={editingFlowInfoType?.name || ''}
+        descriptionText={editingFlowInfoType?.description || ''}
+        contextPrompt={editingFlowInfoType ? `Flow ID: ${editingFlowInfoType.id}
+Flow Name: ${editingFlowInfoType.name}
+Flow Description: ${editingFlowInfoType.description}
+Flow DSL: ${JSON.stringify(dumpFlow(editingFlowInfoType))}` : undefined}
+        onSave={handleSaveEditFlowInfo}
+      />
 
       <AlertDialog open={isDeleteFlowDialogOpen} onOpenChange={setIsDeleteFlowDialogOpen}>
         <AlertDialogContent>
@@ -801,7 +782,7 @@ ${fullLogData}
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
-          <div className="flex-1 h-full overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <TimelineLog nodes={nodes} highlightNode={highlightNode} />
           </div>
           {isShowAiPanel && (

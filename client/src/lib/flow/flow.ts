@@ -493,7 +493,7 @@ export const DSLSchema = z.object({
 export type IDSL = z.infer<typeof DSLSchema>;
 
 // 导出单个Flow
-function dumpFlow(input: IFlow): IFlowDSL {
+export function dumpFlow(input: IFlow): IFlowDSL {
   // 验证所有节点的配置
   input.nodes.forEach(node => {
     try {

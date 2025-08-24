@@ -8,11 +8,14 @@ const openai = new OpenAI({
     dangerouslyAllowBrowser: true,
 });
 
-// 工具定义类型
-export interface ExecutableTool<TArgs = Record<string, any>> {
+export interface Tool {
     name: string;
     description: string;
     parameters: Record<string, any>;
+}
+
+// 工具定义类型
+export interface ExecutableTool<TArgs = Record<string, any>> extends Tool {
     execute: (args: TArgs) => Promise<string>;
 }
 
@@ -31,6 +34,33 @@ export async function llm(model: string, messages: OpenAI.Chat.Completions.ChatC
         messages,
     });
     return response.choices[0].message.content;
+}
+
+// 支持工具调用的 LLM 函数（单次调用）
+export async function llmWithTools(
+    model: string,
+    messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    tools: Tool[]
+): Promise<OpenAI.Chat.Completions.ChatCompletionMessage> {
+    // 将工具转换为 OpenAI 格式
+    const openaiTools = tools.map(tool => ({
+        type: "function" as const,
+        function: {
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters
+        }
+    }));
+
+    const response = await openai.chat.completions.create({
+        model,
+        messages,
+        tools: openaiTools.length > 0 ? openaiTools : undefined,
+    });
+
+    const message = response.choices[0].message;
+
+    return message;
 }
 
 // 流式 LLM 调用
