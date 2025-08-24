@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BaseNodeConfigSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { Position } from '@xyflow/react';
 import { XCircle, Plus, FlaskConical } from "lucide-react";
@@ -48,7 +48,7 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
   name: 'Start',
   description: 'Start node is the starting node of the flow with customizable output parameters.',
   defaultConfig: { name: 'Start', description: '', params: [] },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   ui: StartNodeUI,
   async run(context: INodeContext<IStartNodeConfig, IStartNodeState, IStartNodeInput>): Promise<IStartNodeOutput> {
     if (context.input && Object.keys(context.input).length > 0) {

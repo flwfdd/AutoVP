@@ -1,12 +1,4 @@
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import configGlobal from '@/lib/config';
 import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema } from '@/lib/flow/flow';
@@ -42,27 +34,27 @@ function ToolCallComponent({ toolCall, isCollapsed, onToggleCollapse }: ToolCall
   };
 
   return (
-    <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+    <div className="p-3 bg-cyan-50 dark:bg-cyan-950/20 rounded border border-cyan-300 dark:border-cyan-800">
       <div
         className="flex items-center justify-between cursor-pointer"
         onClick={onToggleCollapse}
       >
         <div className="flex items-center gap-2">
-          <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
+          <div className="text-xs font-medium text-cyan-700 dark:text-cyan-300">
             🔧 {toolCall.name}
           </div>
         </div>
         {isCollapsed ? (
-          <ChevronRight className="h-4 w-4 text-blue-500" />
+          <ChevronRight className="h-4 w-4 text-cyan-500" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-blue-500" />
+          <ChevronDown className="h-4 w-4 text-cyan-500" />
         )}
       </div>
 
       {!isCollapsed && (
         <div className="mt-2">
           {toolCall.arguments ? (
-            <div className="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">
+            <div className="text-xs font-mono rounded break-all">
               {formatArguments(toolCall.arguments)}
             </div>
           ) : (
@@ -78,9 +70,10 @@ interface AICopilotDialogProps {
   isOpen: boolean;
   onClose: () => void;
   DSL: IDSL;
-  onUpdateDSL: (dsl: IDSL) => void;
+  setDSL: (dsl: IDSL) => void;
   nodeTypeMap: Record<string, INodeType<any, any, any, any>>;
   newFlowNodeType: (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
+  setNodeReviewed: (nodeId: string, reviewed: boolean) => void;
 }
 
 interface ChatMessage {
@@ -98,24 +91,37 @@ function AICopilotDialog({
   isOpen,
   onClose,
   DSL,
-  onUpdateDSL,
+  setDSL,
   nodeTypeMap,
   newFlowNodeType,
+  setNodeReviewed,
 }: AICopilotDialogProps) {
-  const [dslString, setDslString] = useState('');
+  const [dslString, setDslString] = useState(''); // DSL in code editor
   const [prompt, setPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [isShowAiPanel, setIsShowAiPanel] = useState(true);
+  const [isShowDSL, setIsShowDSL] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [responseRef, setResponseRef] = useState<HTMLDivElement | null>(null);
   const [dslError, setDslError] = useState('');
   const [collapsedToolCalls, setCollapsedToolCalls] = useState<Set<string>>(new Set());
+  const [collapsedToolResults, setCollapsedToolResults] = useState<Set<number>>(new Set());
+  const [dslSnapshot, setDslSnapshot] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen) {
+      const initialDSL = JSON.stringify(DSL, null, 2);
+      setDslString(initialDSL);
+      setDslSnapshot(initialDSL);
+      setChatHistory([]);
+      setDslError('');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
       setDslString(JSON.stringify(DSL, null, 2));
     }
-  }, [DSL, isOpen]);
+  }, [DSL])
 
   // Check the DSL
   useEffect(() => {
@@ -166,7 +172,11 @@ function AICopilotDialog({
         loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
 
         // Update the DSL string in the editor
-        setDslString(JSON.stringify(newDSL, null, 2));
+        const newDslString = JSON.stringify(newDSL, null, 2);
+        setDslString(newDslString);
+
+        // Automatically apply the changes if DSL is valid
+        setDSL(newDSL);
 
         toast.success(successMessage);
         return successMessage + ' The flow has been validated and applied.';
@@ -227,11 +237,15 @@ function AICopilotDialog({
         if (existingIndex >= 0) {
           // Replace existing node
           targetFlow.nodes[existingIndex] = args.node;
-          return updateDSLAndEditor(currentDSL, `Node "${args.node.id}" updated successfully`);
+          const result = updateDSLAndEditor(currentDSL, `Node "${args.node.id}" updated successfully`);
+          setNodeReviewed(args.node.id, false);
+          return result;
         } else {
           // Add new node
           targetFlow.nodes.push(args.node);
-          return updateDSLAndEditor(currentDSL, `Node "${args.node.id}" created successfully`);
+          const result = updateDSLAndEditor(currentDSL, `Node "${args.node.id}" created successfully`);
+          setNodeReviewed(args.node.id, false);
+          return result;
         }
       }
     };
@@ -346,7 +360,10 @@ function AICopilotDialog({
       description: 'Update the current flow DSL with a new or modified DSL',
       parameters: zodToJsonSchema(UpdateDSLParamsSchema),
       execute: async (args) => {
-        return updateDSLAndEditor(args.dsl, 'DSL updated successfully');
+        const result = updateDSLAndEditor(args.dsl, 'DSL updated successfully');
+        args.dsl.main.nodes.forEach((node) => setNodeReviewed(node.id, false));
+        args.dsl.flows?.forEach((flow) => flow.nodes.forEach((node) => setNodeReviewed(node.id, false)));
+        return result;
       }
     };
 
@@ -691,6 +708,18 @@ ${dslError}
     });
   };
 
+  const toggleToolResultCollapse = (messageIndex: number) => {
+    setCollapsedToolResults(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageIndex)) {
+        newSet.delete(messageIndex);
+      } else {
+        newSet.add(messageIndex);
+      }
+      return newSet;
+    });
+  };
+
   const handleSave = () => {
     try {
       // Parse the current DSL string in the editor
@@ -701,8 +730,8 @@ ${dslError}
         // Use loadDSL to validate if the DSL is valid
         loadDSL(parsedDSL, nodeTypeMap, newFlowNodeType);
 
-        // If validation passes, call onFlowUpdate to update the flow
-        onUpdateDSL(parsedDSL);
+        // If validation passes, call setDSL to update the flow
+        setDSL(parsedDSL);
         onClose();
         toast.success('Flow successfully updated');
       } catch (validationError: any) {
@@ -713,19 +742,41 @@ ${dslError}
     }
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="min-w-full max-w-full min-h-full max-h-full flex flex-col p-4 [&>button]:hidden rounded-none">
-        <DialogHeader>
-          <div className="flex justify-between items-center">
-            <DialogTitle>AI Copilot</DialogTitle>
-            <Button variant="ghost" size="icon" onClick={() => setIsShowAiPanel(!isShowAiPanel)}>
-              {isShowAiPanel ? <PanelRightClose /> : <PanelLeftClose />}
-            </Button>
-          </div>
-        </DialogHeader>
+  const handleCancel = () => {
+    // Restore the DSL snapshot and update the flow
+    setDslString(dslSnapshot);
+    setDslError('');
 
-        <div className="flex-1 flex flex-row gap-2 overflow-hidden min-h-0">
+    // Parse and apply the snapshot to restore the original flow
+    try {
+      const snapshotDSL = JSON.parse(dslSnapshot);
+      setDSL(snapshotDSL);
+    } catch (error) {
+      console.error('Failed to restore DSL snapshot:', error);
+    }
+
+    onClose();
+    toast.info('Changes discarded, restored to original state');
+  };
+
+  // If not open, don't render anything
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className={`fixed top-0 right-0 h-full ${isShowDSL ? 'w-full' : 'w-96'} bg-background border-l shadow-lg flex flex-col z-50`}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-lg font-semibold">AI Copilot</h2>
+        <Button variant="ghost" size="icon" onClick={() => setIsShowDSL(!isShowDSL)} title="Toggle DSL Editor">
+          {isShowDSL ? <PanelRightClose /> : <PanelLeftClose />}
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex flex-row gap-2 overflow-hidden min-h-0 p-4">
+        {isShowDSL && (
           <div className="flex-1 flex flex-col overflow-hidden border rounded-md">
             <Editor
               language="json"
@@ -734,140 +785,155 @@ ${dslError}
               theme="vs-dark"
             />
           </div>
+        )}
 
-          {isShowAiPanel && (
-            <div className="w-1/2 flex flex-col gap-2 px-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Chat History</span>
-                {chatHistory.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clearChatHistory}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+        <div className={`flex flex-col gap-2 ${isShowDSL ? 'w-1/2 px-2' : 'w-full'}`}>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium">Chat History</span>
+            {chatHistory.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearChatHistory} title="Clear Chat History">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <div
+            ref={setResponseRef}
+            className="flex-1 min-h-0 overflow-auto border rounded-md px-4 py-2 text-sm space-y-4"
+          >
+            {chatHistory.length === 0 ? (
+              <div className="text-muted-foreground my-4">
+                You can ask the AI to explain the current flow, modify an existing flow, or create a new flow. For example:
+                <ul className="list-disc pl-8 mt-2 space-y-1">
+                  <li>Analyze the functionality and structure of this flow</li>
+                  <li>Add a new LLM node to the current flow</li>
+                  <li>Create a web crawler flow</li>
+                  <li>Create an image processing flow</li>
+                </ul>
               </div>
-
-              <div
-                ref={setResponseRef}
-                className="flex-1 min-h-0 overflow-auto border rounded-md px-4 py-2 text-sm space-y-4"
-              >
-                {chatHistory.length === 0 ? (
-                  <div className="text-muted-foreground my-4">
-                    You can ask the AI to explain the current flow, modify an existing flow, or create a new flow. For example:
-                    <ul className="list-disc pl-8 mt-2 space-y-1">
-                      <li>Analyze the functionality and structure of this flow</li>
-                      <li>Add a new LLM node to the current flow</li>
-                      <li>Create a web crawler flow</li>
-                      <li>Create an image processing flow</li>
-                    </ul>
+            ) : (
+              chatHistory.map((message, index) => (
+                <div key={index} className={`p-3 rounded-lg ${message.role === 'user'
+                  ? 'bg-primary/10 ml-8'
+                  : message.role === 'tool'
+                    ? 'bg-orange-50 dark:bg-orange-950/20 mx-4 border border-orange-200 dark:border-orange-800'
+                    : 'bg-muted/50 mr-8'
+                  }`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-medium">
+                      {message.role === 'user'
+                        ? 'User'
+                        : message.role === 'tool'
+                          ? 'Tool Result'
+                          : 'Agent'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </span>
+                      {message.role === 'tool' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0"
+                          onClick={() => toggleToolResultCollapse(index)}
+                        >
+                          {collapsedToolResults.has(index) ? (
+                            <ChevronRight className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  chatHistory.map((message, index) => (
-                    <div key={index} className={`p-3 rounded-lg ${message.role === 'user'
-                      ? 'bg-primary/10 ml-8'
-                      : message.role === 'tool'
-                        ? 'bg-orange-50 dark:bg-orange-950/20 mx-4 border border-orange-200 dark:border-orange-800'
-                        : 'bg-muted/50 mr-8'
-                      }`}>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-medium">
-                          {message.role === 'user'
-                            ? 'User'
-                            : message.role === 'tool'
-                              ? 'Tool Result'
-                              : 'AI Assistant'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(message.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
+                  <div className="text-sm">
+                    {message.role === 'user' ? (
+                      <div className="whitespace-pre-wrap">{message.content}</div>
+                    ) : message.role === 'tool' ? (
+                      <div>
+                        {!collapsedToolResults.has(index) && (
+                          <div className="whitespace-pre-wrap">{message.content}</div>
+                        )}
                       </div>
-                      <div className="text-sm">
-                        {message.role === 'user' ? (
-                          <div className="whitespace-pre-wrap">{message.content}</div>
-                        ) : message.role === 'tool' ? (
-                          <div className="whitespace-pre-wrap">{message.content}</div>
-                        ) : (
-                          <div>
-                            <MarkdownRenderer content={message.content} />
-                            {message.toolCalls && message.toolCalls.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                {message.toolCalls.map((toolCall, tcIndex) => (
-                                  <ToolCallComponent
-                                    key={toolCall.id || tcIndex}
-                                    toolCall={toolCall}
-                                    isCollapsed={collapsedToolCalls.has(toolCall.id)}
-                                    onToggleCollapse={() => toggleToolCallCollapse(toolCall.id)}
-                                  />
-                                ))}
-                              </div>
-                            )}
+                    ) : (
+                      <div>
+                        <MarkdownRenderer content={message.content} />
+                        {message.toolCalls && message.toolCalls.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {message.toolCalls.map((toolCall, tcIndex) => (
+                              <ToolCallComponent
+                                key={toolCall.id || tcIndex}
+                                toolCall={toolCall}
+                                isCollapsed={collapsedToolCalls.has(toolCall.id)}
+                                onToggleCollapse={() => toggleToolCallCollapse(toolCall.id)}
+                              />
+                            ))}
                           </div>
                         )}
                       </div>
-                    </div>
-                  ))
-                )}
-                {isAiLoading && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader className="h-4 w-4 animate-spin" />
-                    <span>AI is thinking...</span>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {dslError && (
-                <div className="flex flex-col gap-2">
-                  <div className="border rounded-md p-2 bg-red-600/10 overflow-y-auto max-h-24">
-                    <pre className="text-wrap break-words text-red-600 text-sm">{dslError}</pre>
-                  </div>
-                  <Button variant="outline" onClick={() => handleAiAction(true)}>
-                    Fix with AI
-                  </Button>
                 </div>
-              )}
+              ))
+            )}
+            {isAiLoading && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader className="h-4 w-4 animate-spin" />
+                <span>AI is thinking...</span>
+              </div>
+            )}
+          </div>
 
-              <Textarea
-                placeholder="Describe what you want to do with the flow..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="resize-none min-w-0 h-24"
-                disabled={isAiLoading}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    handleAiAction();
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                onClick={() => handleAiAction()}
-                disabled={isAiLoading || !prompt.trim()}
-              >
-                {isAiLoading ? (
-                  <>
-                    <Loader className="animate-spin" /> Generating...
-                  </>
-                ) : (
-                  `Send`
-                )}
+          {dslError && (
+            <div className="flex flex-col gap-2">
+              <div className="border rounded-md p-2 bg-red-600/10 overflow-y-auto max-h-24">
+                <pre className="text-wrap break-words text-red-600 text-sm">{dslError}</pre>
+              </div>
+              <Button variant="outline" onClick={() => handleAiAction(true)}>
+                Fix with AI
               </Button>
             </div>
           )}
-        </div>
 
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button type="button" onClick={handleSave}>
-            Save
+          <Textarea
+            placeholder="Describe what you want to do with the flow..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="resize-none min-w-0 h-24"
+            disabled={isAiLoading}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                handleAiAction();
+              }
+            }}
+          />
+          <Button
+            type="button"
+            onClick={() => handleAiAction()}
+            disabled={isAiLoading || !prompt.trim()}
+          >
+            {isAiLoading ? (
+              <>
+                <Loader className="animate-spin" /> Generating...
+              </>
+            ) : (
+              `Send`
+            )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-end gap-2 p-4 border-t">
+        <Button type="button" variant="outline" onClick={handleCancel}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={handleSave}>
+          Save
+        </Button>
+      </div>
+    </div>
   );
 }
 

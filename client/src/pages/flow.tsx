@@ -267,15 +267,7 @@ function Flow() {
     setIsAICopilotDialogOpen(true);
   }, []);
 
-  const handleDSLUpdate = useCallback((dsl: IDSL) => {
-    try {
-      importDSL(dsl);
-      toast.success('流程已成功更新');
-    } catch (error: any) {
-      console.error("流程更新失败", error);
-      toast.error(`流程更新失败: ${error.message || '未知错误'}`);
-    }
-  }, [nodeTypeMap, setNodes, setEdges, setFlowNodeTypes, fromIDSLNode, fromIDSLEdge, fitView]);
+
 
   // 导入流
   const importDSL = useCallback((dsl: IDSL) => {
@@ -285,6 +277,14 @@ function Flow() {
     setFlowNodeTypes(flowNodeTypes);
     fitView();
   }, [nodeTypeMap, setNodes, setEdges, setFlowNodeTypes, fromIDSLNode, fromIDSLEdge, fitView]);
+
+  const handleDSLUpdate = useCallback((dsl: IDSL) => {
+    try {
+      importDSL(dsl);
+    } catch (error: any) {
+      console.error("handleDSLUpdate error", error);
+    }
+  }, [importDSL]);
 
   // 获取当前流的DSL
   const exportDSL = useCallback(() => {
@@ -390,6 +390,17 @@ function Flow() {
     toast.warning(`Flow "${deletingFlowType.name}" deleted.`);
     setDeletingFlowType(null);
   }, [deletingFlowType, setFlowNodeTypes, setIsDeleteFlowDialogOpen, setDeletingFlowType]);
+
+  const setNodeReviewed = useCallback((nodeId: string, reviewed: boolean) => {
+    setTimeout(() => {
+      updateNodeData(nodeId, (node) => ({
+        state: {
+          ...(node.data.state as INodeState),
+          reviewed: reviewed,
+        },
+      }));
+    }, 100);
+  }, [updateNodeData]);
 
   const highlightNode = useCallback((nodeId: string) => {
     // 关闭Log Dialog
@@ -653,9 +664,10 @@ function Flow() {
         isOpen={isAICopilotDialogOpen}
         onClose={() => setIsAICopilotDialogOpen(false)}
         DSL={exportDSL()}
-        onUpdateDSL={handleDSLUpdate}
+        setDSL={handleDSLUpdate}
         nodeTypeMap={nodeTypeMap}
         newFlowNodeType={newFlowNodeType}
+        setNodeReviewed={setNodeReviewed}
       />
 
     </div >

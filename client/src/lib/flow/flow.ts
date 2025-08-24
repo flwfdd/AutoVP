@@ -26,9 +26,14 @@ export type INodeConfig = z.infer<typeof NodeConfigSchema>;
 // 节点非持久化状态抽象
 export interface IBaseNodeState {
   highlight: boolean;
+  reviewed: boolean;
 }
 export interface INodeState extends IBaseNodeState {
   [key: string]: any;
+}
+export const BaseNodeDefaultState: IBaseNodeState = {
+  highlight: false,
+  reviewed: true,
 }
 
 // 节点运行记录

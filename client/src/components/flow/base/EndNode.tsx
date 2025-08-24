@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import { z } from 'zod';
 import BaseNode from './BaseNode';
@@ -28,7 +28,7 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
     name: 'End',
     description: '',
   },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   ui: EndNodeUI,
   async run(context: INodeContext<IEndNodeConfig, IEndNodeState, IEndNodeInput>): Promise<IEndNodeOutput> {
     return context.input.value;

@@ -1,4 +1,4 @@
-import { FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeWithPosition, IRunFlowStack, runFlow, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeDefaultState, FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeWithPosition, IRunFlowStack, runFlow, useNodeUIContext } from '@/lib/flow/flow';
 import { useMemo } from 'react';
 import { Position } from '@xyflow/react';
 import BaseNode from './BaseNode';
@@ -66,9 +66,9 @@ export function newFlowNodeType(id: string, name: string, description: string, n
   };
 
   flowNodeType.defaultState = {
+    ...BaseNodeDefaultState,
     type: flowNodeType,
     runNodes: [],
-    highlight: false,
   } as IFlowNodeState;
 
   return flowNodeType as IFlowNodeType;

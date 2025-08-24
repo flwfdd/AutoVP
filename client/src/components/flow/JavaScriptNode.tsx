@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
@@ -52,7 +52,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   logFormatter: ((config: IJavaScriptNodeConfig, _state: INodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
     return {
       ...log,

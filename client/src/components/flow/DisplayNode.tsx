@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import { Text } from "lucide-react";
 import { useState } from "react";
@@ -33,7 +33,7 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
     name: 'New Display',
     description: '',
   },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   ui: DisplayNodeUI,
   async run(_context: INodeContext<IDisplayNodeConfig, IDisplayNodeState, IDisplayNodeInput>): Promise<IDisplayNodeOutput> {
     return {};

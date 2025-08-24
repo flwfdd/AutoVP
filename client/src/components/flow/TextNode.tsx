@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeRunLog, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeRunLog, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback } from 'react';
 import { z } from "zod";
@@ -28,7 +28,7 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
   name: 'Text',
   description: 'Text node provides a text source.',
   defaultConfig: { name: 'New Text', description: '', text: '' },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   logFormatter: (_config: ITextNodeConfig, _state: ITextNodeState, log: INodeRunLog<ITextNodeInput, ITextNodeOutput>) => ({
     input: 'No input',
     output: log.output?.text ?? '',

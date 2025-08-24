@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import config from '@/lib/config';
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId } from '@/lib/utils';
 import {
   Position
@@ -82,7 +82,7 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
   name: 'Python',
   description: 'Python node runs code in a function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
   defaultConfig: { name: 'New Python', description: '', code: '', params: [] },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   logFormatter: ((config: IPythonNodeConfig, _state: INodeState, log: INodeRunLog<IPythonNodeInput, IPythonNodeOutput>) => {
     return {
       ...log,

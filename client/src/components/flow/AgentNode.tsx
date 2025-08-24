@@ -7,7 +7,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import configGlobal from '@/lib/config';
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState, BaseNodeDefaultState } from '@/lib/flow/flow';
 import { react, ExecutableTool } from '@/lib/llm';
 import { Position } from '@xyflow/react';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -52,7 +52,7 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
         toolFlowIds: [],
         maxIterations: 10
     },
-    defaultState: { highlight: false },
+    defaultState: BaseNodeDefaultState,
     ui: AgentNodeUI,
     async run(context: INodeContext<IAgentNodeConfig, IAgentNodeState, IAgentNodeInput>): Promise<IAgentNodeOutput> {
         if (!context.config.model) {

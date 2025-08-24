@@ -54,7 +54,7 @@ function EditNodeDialog<C extends INodeConfig>(
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" title="Edit Node Info">
           <Pencil />
         </Button>
       </DialogTrigger>
@@ -106,7 +106,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
   const { nodeType, handles = [], children } = props;
   const { setEdges } = useReactFlow();
   const prevHandlesRef = useRef<string[]>([]);
-  const { config, state, runState, setConfig } = useNodeUIContext(props);
+  const { config, state, runState, setConfig, setState } = useNodeUIContext(props);
 
   useEffect(() => {
     const currentHandles = handles.map(handle => handle.id);
@@ -118,9 +118,17 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
     prevHandlesRef.current = currentHandles;
   }, [handles, setEdges]);
 
+  const handleFocus = () => {
+    setState({ ...state, reviewed: true });
+  };
+
   return (
     <div>
-      <Card className={cn("focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60", state.highlight && "ring-2 ring-orange-600 animate-pulse")} tabIndex={-1}>
+      <Card
+        className={cn("focus:ring focus:ring-ring p-0 pb-2 gap-0 w-60", state.highlight && "ring-2 ring-orange-600 animate-pulse", !state.reviewed && "ring-2 ring-purple-500/50")}
+        tabIndex={-1}
+        onFocus={handleFocus}
+      >
         <CardHeader className="flex items-center justify-between p-2">
           <div className="flex items-center gap-1 min-w-0">
             <Tooltip>
@@ -152,7 +160,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
 
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" title="Run Log">
                   {!runState || runState?.status === 'idle' && <Hourglass className="h text-gray-600" />}
                   {runState?.status === 'running' && <LoaderCircle className="h-4 w-4 animate-spin text-cyan-600" />}
                   {runState?.status === 'success' && <CircleCheckBig className="h-4 w-4 text-green-600" />}

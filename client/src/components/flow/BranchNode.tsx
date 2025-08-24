@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, INodeContext, INodeProps, INodeRunLog, INodeState, INodeType, useNodeUIContext } from "@/lib/flow/flow";
 import { generateId, workerEval } from '@/lib/utils';
 import {
   Position
@@ -69,7 +69,7 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
   name: 'Branch',
   description: 'Branch node outputs based on the condition.\nCondition code example for branches A & B:\n1. `return a`: send input to A\n2. `return [a, b]`: send input to A & B\n3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',
   defaultConfig: { name: 'New Branch', description: '', code: '', branches: [] },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   logFormatter: ((config: IBranchNodeConfig, _state: INodeState, log: INodeRunLog<IBranchNodeInput, IBranchNodeOutput>) => {
     return {
       ...log,

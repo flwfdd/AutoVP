@@ -1,4 +1,4 @@
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
@@ -27,7 +27,7 @@ export const ImageNodeType: INodeType<IImageNodeConfig, IImageNodeState, IImageN
     name: 'New Image',
     description: '',
   },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   ui: ImageNodeUI,
   async run(_context: INodeContext<IImageNodeConfig, IImageNodeState, IImageNodeInput>): Promise<IImageNodeOutput> {
     return {};

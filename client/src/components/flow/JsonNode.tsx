@@ -1,5 +1,5 @@
 import { Textarea } from "@/components/ui/textarea";
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeRunLog, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeRunLog, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import React, { useCallback, useState } from 'react';
 import { z } from "zod";
@@ -28,7 +28,7 @@ export const JsonNodeType: INodeType<IJsonNodeConfig, IJsonNodeState, IJsonNodeI
   name: 'JSON',
   description: 'JSON node provides a json value source.',
   defaultConfig: { name: 'New JSON', description: '', json: {} },
-  defaultState: { highlight: false },
+  defaultState: BaseNodeDefaultState,
   logFormatter: (_config: IJsonNodeConfig, _state: IJsonNodeState, log: INodeRunLog<IJsonNodeInput, IJsonNodeOutput>) => ({
     input: 'No input',
     output: log.output?.json ?? '',
