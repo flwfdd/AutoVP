@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import configGlobal from '@/lib/config';
-import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema } from '@/lib/flow/flow';
-import { reactStream, ExecutableTool } from '@/lib/llm';
+import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema, INodeState, INodeConfig, INodeOutput, INodeInput, dumpDSL, IFlow } from '@/lib/flow/flow';
+import { reactStream, createExecutableTool, Message, ExecutableTool } from '@/lib/llm';
 import { Editor } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, Loader, PanelLeftClose, PanelRightClose, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -58,7 +58,7 @@ function ToolCallComponent({ toolCall, isCollapsed, onToggleCollapse }: ToolCall
               {formatArguments(toolCall.arguments)}
             </div>
           ) : (
-            <div className="text-xs text-gray-500 italic">参数加载中...</div>
+            <div className="text-xs text-gray-500 italic">Loading parameters...</div>
           )}
         </div>
       )}
@@ -71,7 +71,7 @@ interface AICopilotDialogProps {
   onClose: () => void;
   DSL: IDSL;
   setDSL: (dsl: IDSL) => void;
-  nodeTypeMap: Record<string, INodeType<any, any, any, any>>;
+  nodeTypeMap: Record<string, INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>>;
   newFlowNodeType: (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
   setNodeReviewed: (nodeId: string, reviewed: boolean) => void;
 }
@@ -109,19 +109,17 @@ function AICopilotDialog({
 
   useEffect(() => {
     if (isOpen) {
-      const initialDSL = JSON.stringify(DSL, null, 2);
-      setDslString(initialDSL);
-      setDslSnapshot(initialDSL);
+      setDslSnapshot(JSON.stringify(DSL, null, 2));
       setChatHistory([]);
       setDslError('');
     }
-  }, [isOpen]);
+  }, [isOpen]); // DSL更新时不能重置状态
 
   useEffect(() => {
     if (isOpen) {
       setDslString(JSON.stringify(DSL, null, 2));
     }
-  }, [DSL])
+  }, [DSL, isOpen]) // 更新
 
   // Check the DSL
   useEffect(() => {
@@ -129,8 +127,8 @@ function AICopilotDialog({
       const parsedDSL = JSON.parse(dslString);
       loadDSL(parsedDSL, nodeTypeMap, newFlowNodeType);
       setDslError('');
-    } catch (error: any) {
-      setDslError(error.message);
+    } catch (error: unknown) {
+      setDslError(error instanceof Error ? error.message : String(error));
     }
   }, [dslString, nodeTypeMap, newFlowNodeType]);
 
@@ -160,29 +158,31 @@ function AICopilotDialog({
     const getCurrentDSL = () => {
       try {
         return JSON.parse(dslString);
-      } catch (error) {
+      } catch {
         throw new Error('Current DSL is invalid JSON');
       }
     };
 
     // Helper function to update DSL and editor
-    const updateDSLAndEditor = (newDSL: any, successMessage: string) => {
+    const updateDSLAndEditor = (newDSL: unknown, successMessage: string) => {
       try {
         // Validate the DSL
-        loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
+        const validatedDSL = loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
 
         // Update the DSL string in the editor
         const newDslString = JSON.stringify(newDSL, null, 2);
         setDslString(newDslString);
 
         // Automatically apply the changes if DSL is valid
-        setDSL(newDSL);
+        setDSL(dumpDSL(validatedDSL));
 
         toast.success(successMessage);
         return successMessage + ' The flow has been validated and applied.';
-      } catch (error: any) {
-        toast.error('DSL validation failed: ' + error.message);
-        throw new Error(`DSL validation failed: ${error.message}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(error);
+        toast.error('DSL validation failed: ' + errorMessage);
+        throw new Error(`DSL validation failed: ${errorMessage}`);
       }
     };
 
@@ -212,11 +212,11 @@ function AICopilotDialog({
     });
 
     // Create the edit_node tool
-    const editNodeTool: ExecutableTool<z.infer<typeof EditNodeParamsSchema>> = {
-      name: 'edit_node',
-      description: 'Create or edit a node in the flow. If node ID exists, it will be replaced; if not, a new node will be created.',
-      parameters: zodToJsonSchema(EditNodeParamsSchema),
-      execute: async (args) => {
+    const editNodeTool = createExecutableTool(
+      'edit_node',
+      'Create or edit a node in the flow. If node ID exists, it will be replaced; if not, a new node will be created.',
+      EditNodeParamsSchema,
+      async (args) => {
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId || 'main';
 
@@ -225,14 +225,14 @@ function AICopilotDialog({
         if (flowId === 'main') {
           targetFlow = currentDSL.main;
         } else {
-          targetFlow = currentDSL.flows?.find((f: any) => f.id === flowId);
+          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
           if (!targetFlow) {
             throw new Error(`Flow with id "${flowId}" not found`);
           }
         }
 
         // Find existing node index
-        const existingIndex = targetFlow.nodes.findIndex((n: any) => n.id === args.node.id);
+        const existingIndex = targetFlow.nodes.findIndex((n: INodeWithPosition) => n.id === args.node.id);
 
         if (existingIndex >= 0) {
           // Replace existing node
@@ -248,14 +248,14 @@ function AICopilotDialog({
           return result;
         }
       }
-    };
+    );
 
     // Create the remove_node tool
-    const removeNodeTool: ExecutableTool<z.infer<typeof RemoveNodeParamsSchema>> = {
-      name: 'remove_node',
-      description: 'Remove a node from the flow and all its connected edges',
-      parameters: zodToJsonSchema(RemoveNodeParamsSchema),
-      execute: async (args) => {
+    const removeNodeTool = createExecutableTool(
+      'remove_node',
+      'Remove a node from the flow and all its connected edges',
+      RemoveNodeParamsSchema,
+      async (args) => {
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId || 'main';
 
@@ -264,14 +264,14 @@ function AICopilotDialog({
         if (flowId === 'main') {
           targetFlow = currentDSL.main;
         } else {
-          targetFlow = currentDSL.flows?.find((f: any) => f.id === flowId);
+          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
           if (!targetFlow) {
             throw new Error(`Flow with id "${flowId}" not found`);
           }
         }
 
         // Find and remove the node
-        const nodeIndex = targetFlow.nodes.findIndex((n: any) => n.id === args.nodeId);
+        const nodeIndex = targetFlow.nodes.findIndex((n: INodeWithPosition) => n.id === args.nodeId);
         if (nodeIndex === -1) {
           throw new Error(`Node with id "${args.nodeId}" not found`);
         }
@@ -279,20 +279,20 @@ function AICopilotDialog({
         targetFlow.nodes.splice(nodeIndex, 1);
 
         // Remove all edges connected to this node
-        targetFlow.edges = targetFlow.edges.filter((e: any) =>
+        targetFlow.edges = targetFlow.edges.filter((e: { source: { node: string }, target: { node: string } }) =>
           e.source.node !== args.nodeId && e.target.node !== args.nodeId
         );
 
         return updateDSLAndEditor(currentDSL, `Node "${args.nodeId}" and its connected edges removed successfully`);
       }
-    };
+    );
 
     // Create the edit_edge tool
-    const editEdgeTool: ExecutableTool<z.infer<typeof EditEdgeParamsSchema>> = {
-      name: 'edit_edge',
-      description: 'Create or edit an edge in the flow. If edge ID exists, it will be replaced; if not, a new edge will be created.',
-      parameters: zodToJsonSchema(EditEdgeParamsSchema),
-      execute: async (args) => {
+    const editEdgeTool = createExecutableTool(
+      'edit_edge',
+      'Create or edit an edge in the flow. If edge ID exists, it will be replaced; if not, a new edge will be created.',
+      EditEdgeParamsSchema,
+      async (args) => {
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId || 'main';
 
@@ -301,14 +301,14 @@ function AICopilotDialog({
         if (flowId === 'main') {
           targetFlow = currentDSL.main;
         } else {
-          targetFlow = currentDSL.flows?.find((f: any) => f.id === flowId);
+          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
           if (!targetFlow) {
             throw new Error(`Flow with id "${flowId}" not found`);
           }
         }
 
         // Find existing edge index
-        const existingIndex = targetFlow.edges.findIndex((e: any) => e.id === args.edge.id);
+        const existingIndex = targetFlow.edges.findIndex((e: IEdge) => e.id === args.edge.id);
 
         if (existingIndex >= 0) {
           // Replace existing edge
@@ -320,14 +320,14 @@ function AICopilotDialog({
           return updateDSLAndEditor(currentDSL, `Edge "${args.edge.id}" created successfully`);
         }
       }
-    };
+    );
 
     // Create the remove_edge tool
-    const removeEdgeTool: ExecutableTool<z.infer<typeof RemoveEdgeParamsSchema>> = {
-      name: 'remove_edge',
-      description: 'Remove an edge from the flow',
-      parameters: zodToJsonSchema(RemoveEdgeParamsSchema),
-      execute: async (args) => {
+    const removeEdgeTool = createExecutableTool(
+      'remove_edge',
+      'Remove an edge from the flow',
+      RemoveEdgeParamsSchema,
+      async (args) => {
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId || 'main';
 
@@ -336,14 +336,14 @@ function AICopilotDialog({
         if (flowId === 'main') {
           targetFlow = currentDSL.main;
         } else {
-          targetFlow = currentDSL.flows?.find((f: any) => f.id === flowId);
+          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
           if (!targetFlow) {
             throw new Error(`Flow with id "${flowId}" not found`);
           }
         }
 
         // Find and remove the edge
-        const edgeIndex = targetFlow.edges.findIndex((e: any) => e.id === args.edgeId);
+        const edgeIndex = targetFlow.edges.findIndex((e: IEdge) => e.id === args.edgeId);
         if (edgeIndex === -1) {
           throw new Error(`Edge with id "${args.edgeId}" not found`);
         }
@@ -352,20 +352,20 @@ function AICopilotDialog({
 
         return updateDSLAndEditor(currentDSL, `Edge "${args.edgeId}" removed successfully`);
       }
-    };
+    );
 
     // Create the update_dsl tool (keep the original for full DSL updates)
-    const updateDSLTool: ExecutableTool<z.infer<typeof UpdateDSLParamsSchema>> = {
-      name: 'update_dsl',
-      description: 'Update the current flow DSL with a new or modified DSL',
-      parameters: zodToJsonSchema(UpdateDSLParamsSchema),
-      execute: async (args) => {
+    const updateDSLTool = createExecutableTool(
+      'update_dsl',
+      'Update the current flow DSL with a new or modified DSL',
+      UpdateDSLParamsSchema,
+      async (args) => {
         const result = updateDSLAndEditor(args.dsl, 'DSL updated successfully');
         args.dsl.main.nodes.forEach((node) => setNodeReviewed(node.id, false));
         args.dsl.flows?.forEach((flow) => flow.nodes.forEach((node) => setNodeReviewed(node.id, false)));
         return result;
       }
-    };
+    );
 
     const systemPrompt = `You are an expert AI assistant specializing in collaboratively designing and building visual application flows.
 This visual flow system contains different types of nodes and edges between them. The user will provide a complete DSL (Domain Specific Language) representing the current flow.
@@ -538,13 +538,13 @@ ${JSON.stringify(zodToJsonSchema(nodeType.configSchema, nodeType.id), null, 2)}
 
     try {
       // Build conversation history messages
-      const messages = [
-        { role: 'system' as const, content: systemPrompt },
+      const messages: Message[] = [
+        { role: 'system', content: systemPrompt },
         ...chatHistory
           .filter(msg => msg.role !== 'tool') // 排除工具消息，因为会在 react 函数内部处理
-          .map(msg => ({ role: msg.role as any, content: msg.content })),
+          .map(msg => ({ role: msg.role, content: msg.content })),
         {
-          role: 'user' as const,
+          role: 'user',
           content: `${userMessage.content}
 
 Current DSL:
@@ -569,7 +569,7 @@ ${dslError}
         removeNodeTool,
         editEdgeTool,
         removeEdgeTool
-      ], 10);
+      ] as ExecutableTool<Record<string, unknown>>[], 10);
 
       for await (const event of eventStream) {
         switch (event.type) {
@@ -588,17 +588,17 @@ ${dslError}
               const newHistory = [...prev];
               const lastMessage = { ...newHistory[newHistory.length - 1] };
               if (lastMessage && lastMessage.role === 'assistant') {
-                const delta = event.chunk.choices[0]?.delta;
+                const chunk = event.chunk;
 
                 // 更新内容
-                if (delta?.content) {
-                  lastMessage.content += delta.content;
+                if (chunk?.content) {
+                  lastMessage.content += chunk.content;
                 }
 
                 // 更新 tool calls
                 const toolCalls = [...(lastMessage.toolCalls || [])];
-                if (delta?.tool_calls) {
-                  for (const toolCallDelta of delta.tool_calls) {
+                if (chunk?.tool_calls) {
+                  for (const toolCallDelta of chunk.tool_calls) {
                     const index = toolCallDelta.index;
                     if (index !== undefined) {
                       // 确保数组有足够的位置
@@ -637,7 +637,7 @@ ${dslError}
             // 标记助手消息流式传输完成，并标记 tool calls 完成
             setChatHistory(prev => {
               const newHistory = [...prev];
-              let lastMessage = newHistory[newHistory.length - 1];
+              const lastMessage = newHistory[newHistory.length - 1];
               if (lastMessage && lastMessage.role === 'assistant') {
                 lastMessage.content = event.message.content || lastMessage.content;
                 lastMessage.toolCalls = event.message.tool_calls?.map(tc => ({
@@ -678,11 +678,12 @@ ${dslError}
         }
       }
 
-    } catch (error: any) {
-      toast.error('AI processing failed: ' + error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error('AI processing failed: ' + errorMessage);
       setChatHistory(prev => [...prev, {
         role: 'assistant',
-        content: 'Error: ' + error.message,
+        content: 'Error: ' + errorMessage,
         timestamp: Date.now()
       }]);
     } finally {
@@ -734,10 +735,11 @@ ${dslError}
         setDSL(parsedDSL);
         onClose();
         toast.success('Flow successfully updated');
-      } catch (validationError: any) {
-        toast.error('DSL validation failed: ' + validationError.message);
+      } catch (validationError: unknown) {
+        const errorMessage = validationError instanceof Error ? validationError.message : String(validationError);
+        toast.error('DSL validation failed: ' + errorMessage);
       }
-    } catch (parseError) {
+    } catch {
       toast.error('JSON parsing failed, please check the format');
     }
   };

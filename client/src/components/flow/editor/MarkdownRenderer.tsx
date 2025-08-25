@@ -47,15 +47,15 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
     });
     const base64Encoded = btoa(binaryString);
     const base64url = base64Encoded
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-    
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
     const mermaidUrl = `https://mermaid.ink/svg/${base64url}`;
-    
+
     return (
         <div className="my-4 p-4 border rounded-lg bg-background">
-            <img 
+            <img
                 src={mermaidUrl}
                 alt="Mermaid Diagram"
                 className="max-w-full max-h-96 mx-auto"
@@ -92,12 +92,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                         const match = /language-(\w+)/.exec(className || '');
                         const language = match ? match[1] : '';
                         const codeString = String(children).replace(/\n$/, '');
-                        
+
                         // 处理mermaid代码块
                         if (language === 'mermaid') {
                             return <MermaidRenderer code={codeString} />;
                         }
-                        
+
                         return match ? (
                             <SyntaxHighlighter
                                 style={vscDarkPlus}
@@ -115,43 +115,43 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className 
                         );
                     },
                     // 为其他元素添加样式
-                    a({ node, ...props }) {
+                    a({ ...props }) {
                         return <a className="text-primary underline" target="_blank" rel="noopener noreferrer" {...props} />;
                     },
-                    ul({ node, ...props }) {
+                    ul({ ...props }) {
                         return <ul className="list-disc pl-6 my-4 space-y-2" {...props} />;
                     },
-                    ol({ node, ...props }) {
+                    ol({ ...props }) {
                         return <ol className="list-decimal pl-6 my-4 space-y-2" {...props} />;
                     },
-                    li({ node, ...props }) {
+                    li({ ...props }) {
                         return <li className="my-1" {...props} />;
                     },
-                    h1({ node, ...props }) {
+                    h1({ ...props }) {
                         return <h1 className="text-xl font-bold my-4" {...props} />;
                     },
-                    h2({ node, ...props }) {
+                    h2({ ...props }) {
                         return <h2 className="text-lg font-bold my-3" {...props} />;
                     },
-                    h3({ node, ...props }) {
+                    h3({ ...props }) {
                         return <h3 className="text-md font-bold my-3" {...props} />;
                     },
-                    blockquote({ node, ...props }) {
+                    blockquote({ ...props }) {
                         return <blockquote className="border-l-4 border-muted pl-4 italic my-4" {...props} />;
                     },
-                    hr({ node, ...props }) {
+                    hr({ ...props }) {
                         return <hr className="my-4 border-muted" {...props} />;
                     },
-                    table({ node, ...props }) {
+                    table({ ...props }) {
                         return <table className="border-collapse w-full my-4" {...props} />;
                     },
-                    th({ node, ...props }) {
+                    th({ ...props }) {
                         return <th className="border border-muted p-2 bg-muted font-semibold" {...props} />;
                     },
-                    td({ node, ...props }) {
+                    td({ ...props }) {
                         return <td className="border border-muted p-2" {...props} />;
                     },
-                    p({ node, ...props }) {
+                    p({ ...props }) {
                         return <p className="my-4 leading-relaxed" {...props} />;
                     },
                 }}

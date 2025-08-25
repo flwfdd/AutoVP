@@ -18,7 +18,7 @@ const TextNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type ITextNodeConfig = z.infer<typeof TextNodeConfigSchema>;
 
-interface ITextNodeState extends IBaseNodeState { }
+type ITextNodeState = IBaseNodeState;
 
 export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput> = {
   inputSchema: TextNodeInputSchema,
@@ -32,38 +32,37 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
   logFormatter: (_config: ITextNodeConfig, _state: ITextNodeState, log: INodeRunLog<ITextNodeInput, ITextNodeOutput>) => ({
     input: 'No input',
     output: log.output?.text ?? '',
-    error: log.error ?? ''
+    error: log.error ? JSON.stringify(log.error, null, 2) : ''
   }),
-  ui: TextNodeUI,
   async run(context: INodeContext<ITextNodeConfig, ITextNodeState, ITextNodeInput>): Promise<ITextNodeOutput> {
     return { text: context.config.text };
-  }
+  },
+  ui:
+    function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
+      const { config, setConfig } = useNodeUIContext(props);
+      const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setConfig({ text: evt.target.value });
+      }, [setConfig]);
+
+      return (
+        <BaseNode
+          {...props}
+          nodeType={TextNodeType}
+          handles={[
+            {
+              id: 'text',
+              type: 'source',
+              position: Position.Right
+            }
+          ]}
+        >
+          <Textarea
+            placeholder="Enter text"
+            value={config.text}
+            onChange={onChange}
+            className='nowheel nodrag max-h-32'
+          />
+        </BaseNode>
+      );
+    }
 };
-
-function TextNodeUI(props: INodeProps<ITextNodeConfig, ITextNodeState, ITextNodeInput, ITextNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
-  const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setConfig({ text: evt.target.value });
-  }, [setConfig]);
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={TextNodeType}
-      handles={[
-        {
-          id: 'text',
-          type: 'source',
-          position: Position.Right
-        }
-      ]}
-    >
-      <Textarea
-        placeholder="Enter text"
-        value={config.text}
-        onChange={onChange}
-        className='nowheel nodrag max-h-32'
-      />
-    </BaseNode>
-  );
-}

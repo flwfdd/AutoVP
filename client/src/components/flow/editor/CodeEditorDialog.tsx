@@ -76,7 +76,7 @@ function CodeEditorDialog({
       const stream = llmStream(configGlobal.codeEditorModel, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
-      ]);
+      ], []);
 
       for await (const chunk of stream) {
         fullResponse += chunk;
@@ -99,12 +99,13 @@ function CodeEditorDialog({
           // 如果没有代码块，直接使用整个响应
           setInternalCode(fullResponse.trim());
         }
-      } catch (codeError) {
+      } catch {
         toast.error('Failed to extract code from AI response');
       }
-    } catch (error: any) {
-      setResponse(error.message);
-      toast.error('Error during AI code generation: ' + error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setResponse(errorMessage);
+      toast.error('Error during AI code generation: ' + errorMessage);
     } finally {
       setIsAiLoading(false);
     }

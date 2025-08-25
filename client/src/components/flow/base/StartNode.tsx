@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeOutputSchema, INodeContext, INodeProps, INodeState, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { Position } from '@xyflow/react';
 import { XCircle, Plus, FlaskConical } from "lucide-react";
@@ -36,9 +36,7 @@ const StartNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IStartNodeConfig = z.infer<typeof StartNodeConfigSchema>;
 
-interface IStartNodeState extends INodeState {
-  highlight: boolean;
-}
+type IStartNodeState = IBaseNodeState;
 
 export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartNodeInput, IStartNodeOutput> = {
   inputSchema: StartNodeInputSchema,
@@ -49,11 +47,10 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
   description: 'Start node is the starting node of the flow with customizable output parameters.',
   defaultConfig: { name: 'Start', description: '', params: [] },
   defaultState: BaseNodeDefaultState,
-  ui: StartNodeUI,
   async run(context: INodeContext<IStartNodeConfig, IStartNodeState, IStartNodeInput>): Promise<IStartNodeOutput> {
     if (context.input && Object.keys(context.input).length > 0) {
       // run as sub flow, map input to output params
-      const output: Record<string, any> = {};
+      const output: Record<string, unknown> = {};
       context.config.params.forEach(param => {
         output[param.id] = context.input[param.id] ?? null;
       });
@@ -61,7 +58,7 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
     } else {
       // run independently, try using test values if available
       if (context.config.params.length > 0) {
-        const output: Record<string, any> = {};
+        const output: Record<string, unknown> = {};
         context.config.params.forEach(param => {
           output[param.id] = param.testValue || null;
         });
@@ -70,6 +67,79 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
         return {}; // return empty object if there are no params
       }
     }
+  },
+  ui: function StartNodeUI(props: INodeProps<IStartNodeConfig, IStartNodeState, IStartNodeInput, IStartNodeOutput>) {
+    const { config, setConfig } = useNodeUIContext(props);
+    const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
+
+    // 添加输出参数
+    const onAddParam = useCallback(() => {
+      const newParams = [...config.params, { id: generateId(), name: 'param' + (config.params.length + 1), testValue: {} }];
+      setConfig({ params: newParams });
+    }, [config, setConfig]);
+
+    // 编辑输出参数
+    const onParamChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+      const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
+      setConfig({ params: newParams });
+    }, [config, setConfig]);
+
+    // 删除输出参数
+    const onRemoveParam = useCallback((id: string) => {
+      const newParams = config.params.filter(param => param.id !== id);
+      setConfig({ params: newParams });
+    }, [config, setConfig]);
+
+    // 保存测试用例
+    const onSaveTestCases = useCallback((updatedParams: Array<{ id: string; name: string; testValue?: unknown }>) => {
+      setConfig({ params: updatedParams });
+    }, [setConfig]);
+
+    return (
+      <BaseNode
+        {...props}
+        nodeType={StartNodeType}
+        handles={[
+          ...(config.params.map(param => ({
+            id: param.id,
+            type: 'source' as const,
+            position: Position.Right,
+            label: <ParamLabel
+              id={param.id}
+              name={param.name}
+              onParamChange={onParamChange}
+              onRemoveParam={onRemoveParam}
+            />
+          }))
+          )
+        ]}
+      >
+        <div className="space-y-2">
+          <Button variant="outline" className='w-full' onClick={() => onAddParam()}>
+            <Plus />
+            Add Param
+          </Button>
+
+          {config.params.length > 0 && (
+            <Button
+              variant="outline"
+              className='w-full'
+              onClick={() => setIsTestDialogOpen(true)}
+            >
+              <FlaskConical />
+              Test Cases
+            </Button>
+          )}
+        </div>
+
+        <TestCaseDialog
+          isOpen={isTestDialogOpen}
+          onClose={() => setIsTestDialogOpen(false)}
+          params={config.params}
+          onSave={onSaveTestCases}
+        />
+      </BaseNode>
+    );
   }
 };
 
@@ -111,8 +181,8 @@ const TestCaseDialog = React.memo(({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  params: Array<{ id: string; name: string; testValue?: any }>;
-  onSave: (params: Array<{ id: string; name: string; testValue?: any }>) => void;
+  params: Array<{ id: string; name: string; testValue?: unknown }>;
+  onSave: (params: Array<{ id: string; name: string; testValue?: unknown }>) => void;
 }) => {
   const [localParams, setLocalParams] = useState(params);
   const [invalidJsonMap, setInvalidJsonMap] = useState<Record<string, boolean>>({});
@@ -138,7 +208,7 @@ const TestCaseDialog = React.memo(({
           param.id === id ? { ...param, [field]: json } : param
         ));
         setInvalidJsonMap(prev => ({ ...prev, [id]: false }));
-      } catch (error) {
+      } catch {
         setLocalParams(prev => prev.map(param =>
           param.id === id ? { ...param, [field]: value } : param
         ));
@@ -217,77 +287,3 @@ const TestCaseDialog = React.memo(({
     </Dialog>
   );
 });
-
-function StartNodeUI(props: INodeProps<IStartNodeConfig, IStartNodeState, IStartNodeInput, IStartNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
-  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
-
-  // 添加输出参数
-  const onAddParam = useCallback(() => {
-    const newParams = [...config.params, { id: generateId(), name: 'param' + (config.params.length + 1), testValue: {} }];
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
-
-  // 编辑输出参数
-  const onParamChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
-    const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
-
-  // 删除输出参数
-  const onRemoveParam = useCallback((id: string) => {
-    const newParams = config.params.filter(param => param.id !== id);
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
-
-  // 保存测试用例
-  const onSaveTestCases = useCallback((updatedParams: Array<{ id: string; name: string; testValue?: any }>) => {
-    setConfig({ params: updatedParams });
-  }, [setConfig]);
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={StartNodeType}
-      handles={[
-        ...(config.params.map(param => ({
-          id: param.id,
-          type: 'source' as const,
-          position: Position.Right,
-          label: <ParamLabel
-            id={param.id}
-            name={param.name}
-            onParamChange={onParamChange}
-            onRemoveParam={onRemoveParam}
-          />
-        }))
-        )
-      ]}
-    >
-      <div className="space-y-2">
-        <Button variant="outline" className='w-full' onClick={() => onAddParam()}>
-          <Plus />
-          Add Param
-        </Button>
-
-        {config.params.length > 0 && (
-          <Button
-            variant="outline"
-            className='w-full'
-            onClick={() => setIsTestDialogOpen(true)}
-          >
-            <FlaskConical />
-            Test Cases
-          </Button>
-        )}
-      </div>
-
-      <TestCaseDialog
-        isOpen={isTestDialogOpen}
-        onClose={() => setIsTestDialogOpen(false)}
-        params={config.params}
-        onSave={onSaveTestCases}
-      />
-    </BaseNode>
-  );
-}

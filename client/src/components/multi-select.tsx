@@ -316,7 +316,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
       animationConfig,
       maxCount = 3,
       modalPopover = false,
-      asChild = false,
+      // asChild = false,
       className,
       hideSelectAll = false,
       searchable = true,
@@ -817,7 +817,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 <div className="flex justify-between items-center w-full">
                   <div
                     className={cn(
-                      "flex items-center gap-1",
+                      "flex items-center gap-1 min-w-0 flex-1",
                       singleLine
                         ? "overflow-x-auto multiselect-singleline-scroll"
                         : "flex-wrap",
@@ -862,6 +862,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                               screenSize === "mobile" &&
                               "max-w-[120px] truncate",
                               singleLine && "flex-shrink-0 whitespace-nowrap",
+                              "max-w-full min-w-0 flex-shrink flex items-center gap-1",
                               "[&>svg]:pointer-events-auto"
                             )}
                             style={{
@@ -870,25 +871,28 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 }s`,
                               animationDelay: `${animationConfig?.delay || 0}s`,
                             }}>
-                            {IconComponent && !responsiveSettings.hideIcons && (
-                              <IconComponent
+                            <div className="flex items-center min-w-0 flex-1">
+                              {IconComponent && !responsiveSettings.hideIcons && (
+                                <IconComponent
+                                  className={cn(
+                                    "h-4 w-4 mr-2 flex-shrink-0",
+                                    responsiveSettings.compactMode &&
+                                    "h-3 w-3 mr-1",
+                                    customStyle?.iconColor && "text-current"
+                                  )}
+                                  {...(customStyle?.iconColor && {
+                                    style: { color: customStyle.iconColor },
+                                  })}
+                                />
+                              )}
+                              <span
                                 className={cn(
-                                  "h-4 w-4 mr-2",
-                                  responsiveSettings.compactMode &&
-                                  "h-3 w-3 mr-1",
-                                  customStyle?.iconColor && "text-current"
-                                )}
-                                {...(customStyle?.iconColor && {
-                                  style: { color: customStyle.iconColor },
-                                })}
-                              />
-                            )}
-                            <span
-                              className={cn(
-                                screenSize === "mobile" && "truncate"
-                              )}>
-                              {option.label}
-                            </span>
+                                  "truncate min-w-0 flex-1",
+                                  screenSize === "mobile" && "truncate"
+                                )}>
+                                {option.label}
+                              </span>
+                            </div>
                             <div
                               role="button"
                               tabIndex={0}
@@ -907,7 +911,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 }
                               }}
                               aria-label={`Remove ${option.label} from selection`}
-                              className="ml-2 h-4 w-4 cursor-pointer hover:bg-white/20 rounded-sm p-0.5 -m-0.5 focus:outline-none focus:ring-1 focus:ring-white/50">
+                              className="h-4 w-4 cursor-pointer hover:bg-white/20 rounded-sm p-0.5 -m-0.5 focus:outline-none focus:ring-1 focus:ring-white/50 flex-shrink-0 flex items-center justify-center">
                               <XCircle
                                 className={cn(
                                   "h-3 w-3",

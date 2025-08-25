@@ -29,6 +29,7 @@ export interface IBaseNodeState {
   reviewed: boolean;
 }
 export interface INodeState extends IBaseNodeState {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 export const BaseNodeDefaultState: IBaseNodeState = {
@@ -42,7 +43,7 @@ export interface INodeRunLog<I extends IBaseNodeInput, O extends IBaseNodeOutput
   endMs?: number;
   input: I;
   output?: O;
-  error?: any;
+  error?: unknown;
 }
 
 // 节点运行时状态抽象
@@ -50,7 +51,7 @@ export interface INodeStateRun<I extends IBaseNodeInput, O extends IBaseNodeOutp
   input: I;
   output: O;
   status: 'idle' | 'running' | 'success' | 'error';
-  error?: any;
+  error?: unknown;
   logs: INodeRunLog<I, O>[];
 }
 export const defaultNodeRunState: INodeStateRun<IBaseNodeInput, IBaseNodeOutput> = {
@@ -128,7 +129,7 @@ export interface IEdge {
   id: string;
   source: IHandle;
   target: IHandle;
-  value?: any;
+  value?: unknown;
 }
 
 // 带位置的节点
@@ -155,7 +156,7 @@ interface INodeRun extends INode {
 
 // 运行边
 interface IEdgeRun extends IEdge {
-  value: any;
+  value: unknown;
 }
 
 // 运行流栈
@@ -229,7 +230,7 @@ export async function runFlow(
 
     // 设置节点状态为运行中
     node.runState.status = 'running';
-    let log = {
+    const log = {
       startMs: Date.now() - startTime,
       input: {},
       output: {},
@@ -238,7 +239,7 @@ export async function runFlow(
 
     try {
       // 从边获取输入
-      const input = node.inputEdges.reduce<Record<string, any>>((acc, edge) => {
+      const input = node.inputEdges.reduce<Record<string, unknown>>((acc, edge) => {
         if (edges[edge.id].value !== undefined) {
           acc[edge.target.key] = edges[edge.id].value;
         }
@@ -313,17 +314,17 @@ export async function runFlow(
       // 处理输出边和激活下游节点
       try {
         await processOutputs(node, output);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error('processOutputs error', node.config.name, node.id, e);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // 设置节点状态为失败
       node.runState.status = 'error';
       node.runState.error = e;
 
       // 更新运行日志和状态
       log.endMs = Date.now() - startTime;
-      log.error = e.message;
+      log.error = e instanceof Error ? e.message : String(e);
       node.runState.logs.push(log);
       updateNodeRunState(node.id, node.runState);
 
@@ -406,7 +407,7 @@ export async function runFlow(
     if (activeNodeRuns.size > 0) {
       try {
         await Promise.allSettled(Array.from(activeNodeRuns.values()));
-      } catch (e) {
+      } catch {
         // 忽略等待期间的错误
       }
     }
@@ -547,7 +548,7 @@ export function dumpDSL(input: IDumpDSLIO): IDSL {
 }
 
 // 节点类型映射
-type INodeTypeMap = Record<string, INodeType<any, any, any, any>>;
+type INodeTypeMap = Record<string, INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>>;
 
 // 从单个Flow加载节点和边
 function loadFlow(
@@ -712,7 +713,12 @@ export interface IFlowNodeState extends INodeState {
   type: IFlowNodeType;
   runNodes: INode[];
 }
-export type IFlowNodeType = INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput> & IFlow;
+// 流节点类型 - 使用组合而不是交集类型 相当于 INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput> & IFlow
+export interface IFlowNodeType extends INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput> {
+  // 流特有的属性 & IFlow
+  nodes: INodeWithPosition[];
+  edges: IEdge[];
+}
 export type INewFlowNodeType = (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
 
 // 从DSL加载完整工程
@@ -739,7 +745,7 @@ export function loadDSL(
     acc[flowNodeType.id] = flowNodeType;
     return acc;
   }, {});
-  const allNodeTypeMap = { ...nodeTypeMap, ...flowNodeTypeMap };
+  const allNodeTypeMap = { ...nodeTypeMap, ...flowNodeTypeMap } as INodeTypeMap;
   // 注入子流类型的节点和边
   const flows = dsl.flows.map(flow => loadFlow(flow, allNodeTypeMap));
   flows.forEach(flow => {

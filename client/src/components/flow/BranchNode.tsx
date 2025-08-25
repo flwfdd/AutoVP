@@ -59,7 +59,7 @@ const BranchNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IBranchNodeConfig = z.infer<typeof BranchNodeConfigSchema>;
 
-interface IBranchNodeState extends INodeState { }
+type IBranchNodeState = INodeState;
 
 export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput> = {
   configSchema: BranchNodeConfigSchema,
@@ -79,12 +79,11 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
         acc[config.branches?.find(branch => branch.id === key)?.name || key] = JSON.stringify(value, null, 2);
         return acc;
       }, {}), null, 2),
-      error: log.error || ''
+      error: log.error ? JSON.stringify(log.error, null, 2) : ''
     };
   }),
-  ui: BranchNodeUI,
   async run(context: INodeContext<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput>): Promise<IBranchNodeOutput> {
-    const params = context.config.branches.reduce<Record<string, any>>((acc, branch) => {
+    const params = context.config.branches.reduce<Record<string, string>>((acc, branch) => {
       acc[branch.name] = branch.id;
       return acc;
     }, {});
@@ -109,123 +108,123 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
     } else {
       throw new Error('Condition output format error');
     }
+  },
+  ui: function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput>) {
+    const BranchLabel = React.memo(({
+      id,
+      name,
+      onBranchChange,
+      onRemoveBranch
+    }: {
+      id: string;
+      name: string;
+      onBranchChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+      onRemoveBranch: (id: string) => void;
+    }) => {
+      return (
+        <div className="flex items-center justify-center space-x-2 p-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { onRemoveBranch(id) }}
+          >
+            <XCircle />
+          </Button>
+          <Input
+            placeholder="Branch Name"
+            className="text-xs nowheel nodrag"
+            value={name}
+            onChange={(evt) => onBranchChange(id, evt)}
+          />
+        </div>
+      );
+    });
+
+    const { config, setConfig, runState } = useNodeUIContext(props);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+    const systemPrompt = useMemo(() => {
+      return `You are a professional JavaScript programmer. Your task is to help the user write branch condition logic code.
+  Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
+  ${codePrompt}
+  Available branch names: ${config.branches.map(branch => branch.name).join(', ')}`;
+    }, [config.branches]);
+
+    // 编辑代码更新data
+    const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setConfig({ code: evt.target.value });
+    }, [setConfig]);
+
+    const handleEditorCodeSave = useCallback((newCode: string) => {
+      setConfig({ code: newCode });
+    }, [setConfig]);
+
+    // 添加输入参数 id作为输入map的key不会变
+    const onAddBranch = useCallback(() => {
+      const newBranches = [...config.branches, { id: generateId(), name: '' }];
+      setConfig({ branches: newBranches });
+    }, [config, setConfig]);
+
+    // 编辑输入参数
+    const onBranchChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+      const newBranches = config.branches.map(branch => branch.id === id ? { ...branch, name: evt.target.value } : branch);
+      setConfig({ branches: newBranches });
+    }, [config, setConfig]);
+
+    // 删除输入参数
+    const onRemoveBranch = useCallback((id: string) => {
+      const newBranches = config.branches.filter(branch => branch.id !== id);
+      setConfig({ branches: newBranches });
+    }, [config, setConfig]);
+
+    return (
+      <BaseNode
+        {...props}
+        nodeType={BranchNodeType}
+        handles={[
+          {
+            id: 'input',
+            type: 'target' as const,
+            position: Position.Left,
+          },
+          ...config.branches.map(branch => ({
+            id: branch.id,
+            type: 'source' as const,
+            position: Position.Right,
+            label: <BranchLabel
+              id={branch.id}
+              name={branch.name}
+              onBranchChange={onBranchChange}
+              onRemoveBranch={onRemoveBranch}
+            />
+          })),
+
+        ]}
+      >
+        <Textarea
+          placeholder='Condition Code'
+          value={config.code}
+          onChange={onCodeChange}
+          className='nowheel nodrag whitespace-pre-wrap break-all'
+        />
+        <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
+          <Code /> Code Editor
+        </Button>
+        <Separator className='my-2' />
+        <Button variant="outline" className='w-full' onClick={() => onAddBranch()}>
+          Add Branch
+        </Button>
+        <CodeEditorDialog
+          isOpen={isEditorOpen}
+          onClose={() => setIsEditorOpen(false)}
+          code={config.code}
+          onCodeChange={handleEditorCodeSave}
+          language="javascript"
+          title="Edit Branch Condition Code"
+          systemPrompt={systemPrompt}
+          runLogs={JSON.stringify(runState.logs)}
+        />
+      </BaseNode>
+    );
   }
 };
-
-const BranchLabel = React.memo(({
-  id,
-  name,
-  onBranchChange,
-  onRemoveBranch
-}: {
-  id: string;
-  name: string;
-  onBranchChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveBranch: (id: string) => void;
-}) => {
-  return (
-    <div className="flex items-center justify-center space-x-2 p-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => { onRemoveBranch(id) }}
-      >
-        <XCircle />
-      </Button>
-      <Input
-        placeholder="Branch Name"
-        className="text-xs nowheel nodrag"
-        value={name}
-        onChange={(evt) => onBranchChange(id, evt)}
-      />
-    </div>
-  );
-});
-
-function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-
-  const systemPrompt = useMemo(() => {
-    return `You are a professional JavaScript programmer. Your task is to help the user write branch condition logic code.
-Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
-${codePrompt}
-Available branch names: ${config.branches.map(branch => branch.name).join(', ')}`;
-  }, [config.branches]);
-
-  // 编辑代码更新data
-  const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setConfig({ code: evt.target.value });
-  }, [setConfig]);
-
-  const handleEditorCodeSave = useCallback((newCode: string) => {
-    setConfig({ code: newCode });
-  }, [setConfig]);
-
-  // 添加输入参数 id作为输入map的key不会变
-  const onAddBranch = useCallback(() => {
-    const newBranches = [...config.branches, { id: generateId(), name: '' }];
-    setConfig({ branches: newBranches });
-  }, [config, setConfig]);
-
-  // 编辑输入参数
-  const onBranchChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
-    const newBranches = config.branches.map(branch => branch.id === id ? { ...branch, name: evt.target.value } : branch);
-    setConfig({ branches: newBranches });
-  }, [config, setConfig]);
-
-  // 删除输入参数
-  const onRemoveBranch = useCallback((id: string) => {
-    const newBranches = config.branches.filter(branch => branch.id !== id);
-    setConfig({ branches: newBranches });
-  }, [config, setConfig]);
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={BranchNodeType}
-      handles={[
-        {
-          id: 'input',
-          type: 'target' as const,
-          position: Position.Left,
-        },
-        ...config.branches.map(branch => ({
-          id: branch.id,
-          type: 'source' as const,
-          position: Position.Right,
-          label: <BranchLabel
-            id={branch.id}
-            name={branch.name}
-            onBranchChange={onBranchChange}
-            onRemoveBranch={onRemoveBranch}
-          />
-        })),
-
-      ]}
-    >
-      <Textarea
-        placeholder='Condition Code'
-        value={config.code}
-        onChange={onCodeChange}
-        className='nowheel nodrag whitespace-pre-wrap break-all'
-      />
-      <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
-        <Code /> Code Editor
-      </Button>
-      <Separator className='my-2' />
-      <Button variant="outline" className='w-full' onClick={() => onAddBranch()}>
-        Add Branch
-      </Button>
-      <CodeEditorDialog
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        code={config.code}
-        onCodeChange={handleEditorCodeSave}
-        language="javascript"
-        title="Edit Branch Condition Code"
-        systemPrompt={systemPrompt}
-      />
-    </BaseNode>
-  );
-}

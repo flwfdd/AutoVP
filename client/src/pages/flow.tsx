@@ -11,6 +11,8 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  Connection,
+  NodeTypes,
 } from '@xyflow/react';
 import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sparkles, Sun, SunMoon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -60,7 +62,6 @@ import { generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { JsonNodeType } from '@/components/flow/JsonNode';
 import { useFlowNodeTypes } from '@/lib/flow/use-flow-node-types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 // 注册节点类型
 const basicNodeTypes = [AgentNodeType, TextNodeType, JsonNodeType, DisplayNodeType, ImageNodeType, JavaScriptNodeType, PythonNodeType, BranchNodeType];
@@ -98,14 +99,14 @@ function Flow() {
   const { flowNodeTypes, setFlowNodeTypes } = useFlowNodeTypes();
   // 注册节点类型
   const allNodeTypes = useMemo(() => [...basicNodeTypes, ...specialNodeTypes, ...flowNodeTypes], [flowNodeTypes]);
-  const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<any, any, any, any>>>((acc, nodeType) => {
-    acc[nodeType.id] = nodeType;
+  const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>>>((acc, nodeType) => {
+    acc[nodeType.id] = nodeType as INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>
     return acc;
   }, {}), [allNodeTypes]);
 
   // 注册节点UI供ReactFlow使用
-  const nodeTypeUIMap = useMemo(() => allNodeTypes.reduce<Record<string, React.ComponentType<any>>>((acc, nodeType) => {
-    acc[nodeType.id] = nodeType.ui;
+  const nodeTypeUIMap = useMemo(() => allNodeTypes.reduce<Record<string, React.ComponentType<unknown>>>((acc, nodeType) => {
+    acc[nodeType.id] = nodeType.ui as React.ComponentType<unknown>;
     return acc;
   }, {}), [allNodeTypes]);
 
@@ -142,13 +143,13 @@ function Flow() {
 
   // 连接边
   const onConnect = useCallback(
-    (params: any) => setEdges((eds) => addEdge({ ...params }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ ...params }, eds)),
     [setEdges],
   );
 
   // 拖拽添加节点
   const onDrop = useCallback(
-    (event: any) => {
+    (event: React.DragEvent) => {
       event.preventDefault();
 
       // 获取节点类型
@@ -180,10 +181,10 @@ function Flow() {
   );
 
   // 拖拽节点时
-  const onDragOver = (event: any) => {
+  const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-  };
+  }, []);
 
   // 将节点转换为运行时节点
   const toINode = useCallback((node: Node, withRunState: boolean = false, withPosition: boolean = true) => ({
@@ -213,7 +214,7 @@ function Flow() {
     };
   }, [nodes, toINode]);
 
-  const fromIDSLNode = (node: INodeWithPosition): Node => ({
+  const fromIDSLNode = useCallback((node: INodeWithPosition): Node => ({
     id: node.id,
     type: node.type.id,
     position: node.position,
@@ -223,15 +224,15 @@ function Flow() {
       runState: node.runState,
     },
     deletable: node.type.id !== 'start' && node.type.id !== 'end',
-  });
+  }), []);
 
-  const fromIDSLEdge = (edge: IEdge): Edge => ({
+  const fromIDSLEdge = useCallback((edge: IEdge): Edge => ({
     id: edge.id,
     source: edge.source.node.id,
     target: edge.target.node.id,
     sourceHandle: edge.source.key,
     targetHandle: edge.target.key,
-  });
+  }), []);
 
   // 运行流
   const handleRun = useCallback(() => {
@@ -279,8 +280,9 @@ function Flow() {
   const handleDSLUpdate = useCallback((dsl: IDSL) => {
     try {
       importDSL(dsl);
-    } catch (error: any) {
-      console.error("handleDSLUpdate error", error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("handleDSLUpdate error", errorMessage);
     }
   }, [importDSL]);
 
@@ -329,9 +331,10 @@ function Flow() {
         const dsl: IDSL = JSON.parse(String(e.target?.result));
         importDSL(dsl);
         toast.success('Flow import success!');
-      } catch (error: any) {
-        console.error("Flow import error", error);
-        toast.error(`Flow import error: ${error.message || 'Invalid JSON format'}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Flow import error", errorMessage);
+        toast.error(`Flow import error: ${errorMessage || 'Invalid JSON format'}`);
       } finally {
         // 重置文件输入值以允许重新选择相同的文件
         if (event.target) {
@@ -429,7 +432,7 @@ function Flow() {
       }
       return ft;
     }))
-  }, [editingFlow, setFlowNodeTypes, toINode, toIEdge]);
+  }, [editingFlow, setFlowNodeTypes, nodes, edges, toINode, toIEdge]);
 
   const handleEditFlow = useCallback((flowType: IFlowNodeType) => {
     setIsEditFlowDialogOpen(false);
@@ -528,7 +531,7 @@ function Flow() {
           <Separator className="mt-2" />
         </div>
 
-        <ScrollArea className="p-4 min-h-0">
+        <div className="p-4 overflow-y-auto">
           <div className="flex flex-col">
             <div className="text-lg font-bold">Nodes</div>
             <div className="text-sm text-muted-foreground">Drag and drop to add nodes</div>
@@ -575,12 +578,12 @@ function Flow() {
                 ))}
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypeUIMap}
+        nodeTypes={nodeTypeUIMap as NodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -687,7 +690,7 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
       type: string;
       typeName: string;
       name: string;
-      runState: INodeStateRun<any, any>;
+      runState: INodeStateRun<INodeInput, INodeOutput>;
       children?: NodeLogData[];
     }
 
@@ -703,19 +706,21 @@ function LogDialog({ isLogDialogOpen, setIsLogDialogOpen, nodes, highlightNode }
 
       // 对过长的输入输出进行截断
       const MAX_LOG_IO_LENGTH = 1000;
-      const truncate = (value: any) => {
-        let text = JSON.stringify(value);
-        if (text.length > MAX_LOG_IO_LENGTH) {
-          return text.slice(0, MAX_LOG_IO_LENGTH) + '...[truncated]';
-        }
-        return text;
+      const truncate = (x: { [key: string]: unknown }) => {
+        Object.entries(x).forEach(([key, value]) => {
+          const jsonValue = JSON.stringify(value);
+          if (jsonValue.length > MAX_LOG_IO_LENGTH) {
+            x[key] = jsonValue.slice(0, MAX_LOG_IO_LENGTH) + '...[truncated]';
+          }
+        });
+        return x;
       }
       nodeData.runState.input = truncate(nodeData.runState.input);
       nodeData.runState.output = truncate(nodeData.runState.output);
       nodeData.runState.logs = nodeData.runState.logs.map(log => ({
         ...log,
-        input: truncate(log.input),
-        output: truncate(log.output),
+        input: log.input ? truncate(log.input) : log.input,
+        output: log.output ? truncate(log.output) : log.output,
       }));
 
       // 如果是Flow节点，递归获取其子节点日志
@@ -748,10 +753,10 @@ ${fullLogData}
       const stream = llmStream(configGlobal.codeEditorModel, [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
-      ]);
+      ], []);
 
       for await (const chunk of stream) {
-        fullResponse += chunk;
+        fullResponse += chunk.content;
         setAiResponse(fullResponse);
       }
 
@@ -759,9 +764,10 @@ ${fullLogData}
         toast.error('AI returned an empty response.');
         setAiResponse('AI returned an empty response.');
       }
-    } catch (error: any) {
-      toast.error('Error during AI log analysis: ' + error.message);
-      setAiResponse('Error during AI log analysis: ' + error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error('Error during AI log analysis: ' + errorMessage);
+      setAiResponse('Error during AI log analysis: ' + errorMessage);
     } finally {
       setIsAiLoading(false);
     }

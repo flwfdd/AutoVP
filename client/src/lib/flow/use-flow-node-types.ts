@@ -3,7 +3,7 @@ import { IFlowNodeType } from "./flow";
 
 // 全局流程类型管理
 let globalFlowNodeTypes: IFlowNodeType[] = [];
-let flowTypeListeners: Set<(flows: IFlowNodeType[]) => void> = new Set();
+const flowTypeListeners: Set<(flows: IFlowNodeType[]) => void> = new Set();
 
 // 设置全局流程类型
 export function setFlowNodeTypes(flowNodeTypes: IFlowNodeType[] | ((prev: IFlowNodeType[]) => IFlowNodeType[])) {

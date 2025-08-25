@@ -12,7 +12,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeConfig, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { IBaseNodeConfig, IBaseNodeInput, IBaseNodeOutput, IBaseNodeState, INodeProps, useNodeUIContext } from '@/lib/flow/flow';
 import { cn } from "@/lib/utils";
 import { useReactFlow } from '@xyflow/react';
 import { CircleAlert, CircleCheckBig, Hourglass, LoaderCircle, Pencil } from "lucide-react";

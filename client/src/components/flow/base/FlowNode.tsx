@@ -17,7 +17,6 @@ export function newFlowNodeType(id: string, name: string, description: string, n
       name: name + ' Node',
       description: '',
     },
-    ui: FlowNodeUI,
     async run(context: INodeContext<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput>): Promise<IFlowNodeOutput> {
       const runNodeMap: Record<string, INode> = {}
       context.state.runNodes = context.state.type.nodes.map(node => {
@@ -32,7 +31,6 @@ export function newFlowNodeType(id: string, name: string, description: string, n
         return runNode;
       }
       )
-      const fakeUpdate = (_a: any, _b: any) => { }
       const updateRunState = (nodeId: string, runState: INodeStateRun<INodeInput, INodeOutput>) => runNodeMap[nodeId].runState = structuredClone(runState)
       context.flowStack.forEach(stack => {
         if (stack.flow.id === context.state.type.id) {
@@ -48,11 +46,11 @@ export function newFlowNodeType(id: string, name: string, description: string, n
       const startNode = context.state.type.nodes.find(node => node.type.id === 'start');
 
       // 准备传递给子流程的输入
-      let flowInput: any;
+      let flowInput: Record<string, unknown>;
       if (startNode && startNode.config.params && startNode.config.params.length > 0) {
         // 如果 start 节点有自定义参数，将输入映射到对应的参数
         flowInput = {};
-        startNode.config.params.forEach((param: any) => {
+        startNode.config.params.forEach((param: { id: string, name: string }) => {
           flowInput[param.id] = context.input[param.name] ?? null;
         });
       } else {
@@ -60,9 +58,52 @@ export function newFlowNodeType(id: string, name: string, description: string, n
         flowInput = context.input.input ?? context.input;
       }
 
-      const output = await runFlow(flowInput, context.state.runNodes, context.state.type.edges, fakeUpdate, fakeUpdate, updateRunState, flowStack);
+      const output = await runFlow(flowInput, context.state.runNodes, context.state.type.edges, () => { }, () => { }, updateRunState, flowStack);
       return { output };
-    }
+    },
+    ui:
+      function FlowNodeUI(props: INodeProps<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput>) {
+        const { state } = useNodeUIContext(props);
+
+        // 获取子流程的 start 节点来确定输入参数
+        const inputHandles = useMemo(() => {
+          const startNode = state.type.nodes.find(node => node.type.id === 'start');
+
+          if (startNode && startNode.config.params && startNode.config.params.length > 0) {
+            // 如果 start 节点有自定义参数，为每个参数创建输入handle
+            return startNode.config.params.map((param: { id: string, name: string }) => ({
+              id: param.name,
+              type: 'target' as const,
+              position: Position.Left,
+              label: param.name
+            }));
+          } else {
+            // 如果没有自定义参数，使用传统的单一输入
+            return [{
+              id: 'input',
+              type: 'target' as const,
+              position: Position.Left,
+              label: 'Input'
+            }];
+          }
+        }, [state.type.nodes]);
+
+        return (
+          <BaseNode
+            {...props}
+            nodeType={state.type}
+            handles={[
+              ...inputHandles,
+              {
+                id: 'output',
+                type: 'source',
+                position: Position.Right,
+                label: "Output",
+              }
+            ]}
+          />
+        );
+      }
   };
 
   flowNodeType.defaultState = {
@@ -74,45 +115,3 @@ export function newFlowNodeType(id: string, name: string, description: string, n
   return flowNodeType as IFlowNodeType;
 }
 
-function FlowNodeUI(props: INodeProps<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput>) {
-  const { state } = useNodeUIContext(props);
-
-  // 获取子流程的 start 节点来确定输入参数
-  const inputHandles = useMemo(() => {
-    const startNode = state.type.nodes.find(node => node.type.id === 'start');
-
-    if (startNode && startNode.config.params && startNode.config.params.length > 0) {
-      // 如果 start 节点有自定义参数，为每个参数创建输入handle
-      return startNode.config.params.map((param: any) => ({
-        id: param.name,
-        type: 'target' as const,
-        position: Position.Left,
-        label: param.name
-      }));
-    } else {
-      // 如果没有自定义参数，使用传统的单一输入
-      return [{
-        id: 'input',
-        type: 'target' as const,
-        position: Position.Left,
-        label: 'Input'
-      }];
-    }
-  }, [state.type.nodes]);
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={state.type}
-      handles={[
-        ...inputHandles,
-        {
-          id: 'output',
-          type: 'source',
-          position: Position.Right,
-          label: "Output",
-        }
-      ]}
-    />
-  );
-}

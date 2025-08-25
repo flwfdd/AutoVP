@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { llmWithTools } from "@/lib/llm";
+import { llm } from "@/lib/llm";
 import { Loader, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import config from "@/lib/config";
@@ -91,7 +91,7 @@ Call the generate_info tool to generate the name and description.`;
         }
       ];
 
-      const result = await llmWithTools(config.codeEditorModel, [
+      const result = await llm(config.codeEditorModel, [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ], tools);
@@ -107,8 +107,9 @@ Call the generate_info tool to generate the name and description.`;
       } else {
         toast.error("Failed to generate name and description.");
       }
-    } catch (error: any) {
-      toast.error(`Generation failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Generation failed: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }

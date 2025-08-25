@@ -1,22 +1,21 @@
 type WorkerInput = {
     code: string;
-    params: Record<string, any>;
+    params: Record<string, unknown>;
 }
 
 export type WorkerOutput =
-    | { type: 'result'; data: any; logs: string[] }
+    | { type: 'result'; data: unknown; logs: string[] }
     | { type: 'error'; message: string; logs: string[] };
 
 // 接收调用信息
 self.onmessage = async (event: MessageEvent<WorkerInput>) => {
     const logs: string[] = [];
-
+    const originalConsoleLog = console.log;
     try {
         const { code, params } = event.data;
 
         // 重写 console.log 来捕获输出
-        const originalConsoleLog = console.log;
-        console.log = (...args: any[]) => {
+        console.log = (...args: unknown[]) => {
             const logMessage = args.map(arg =>
                 typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
             ).join(' ');
@@ -43,11 +42,11 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
 
         // 返回结果和日志
         self.postMessage({ type: 'result', data: output, logs } satisfies WorkerOutput);
-    } catch (e: any) {
+    } catch (e: unknown) {
         // 恢复原始的 console.log
-        console.log = console.log;
+        console.log = originalConsoleLog;
 
         // 返回错误和日志
-        self.postMessage({ type: 'error', message: e.message, logs } satisfies WorkerOutput);
+        self.postMessage({ type: 'error', message: e instanceof Error ? e.message : String(e), logs } satisfies WorkerOutput);
     }
 };

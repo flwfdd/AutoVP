@@ -57,7 +57,7 @@ function TimelineLogRight({ log, tickMs, onLogClick }: TimelineLogRightProps) {
         </TooltipProvider>
       );
     });
-  }, [log.node.runState.logs, log.node.runState.status, tickMs]);
+  }, [log.node.runState.logs, log.node.runState.status, log.depth, tickMs]);
 
   return (
     <div className="pl-4 hover:bg-muted/50 cursor-pointer" onClick={() => onLogClick(log)}>
@@ -196,7 +196,7 @@ export default function TimelineLog({ nodes, highlightNode }: TimelineLogProps) 
       log.show = true;
     })
     setTimelineLogs(logs);
-  }, [nodes])
+  }, [nodes, maxEndTime])
 
   // 缩放处理
   const handleZoomIn = () => setTickMs(prev => Math.max(prev - Math.pow(10, Math.ceil(Math.log10(prev) - 1)), 10));

@@ -18,7 +18,7 @@ const JsonNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IJsonNodeConfig = z.infer<typeof JsonNodeConfigSchema>;
 
-interface IJsonNodeState extends IBaseNodeState { }
+type IJsonNodeState = IBaseNodeState;
 
 export const JsonNodeType: INodeType<IJsonNodeConfig, IJsonNodeState, IJsonNodeInput, IJsonNodeOutput> = {
   inputSchema: JsonNodeInputSchema,
@@ -32,51 +32,50 @@ export const JsonNodeType: INodeType<IJsonNodeConfig, IJsonNodeState, IJsonNodeI
   logFormatter: (_config: IJsonNodeConfig, _state: IJsonNodeState, log: INodeRunLog<IJsonNodeInput, IJsonNodeOutput>) => ({
     input: 'No input',
     output: log.output?.json ?? '',
-    error: log.error ?? ''
+    error: log.error ? JSON.stringify(log.error, null, 2) : ''
   }),
-  ui: JsonNodeUI,
   async run(context: INodeContext<IJsonNodeConfig, IJsonNodeState, IJsonNodeInput>): Promise<IJsonNodeOutput> {
     return { json: context.config.json };
-  }
-};
-
-function JsonNodeUI(props: INodeProps<IJsonNodeConfig, IJsonNodeState, IJsonNodeInput, IJsonNodeOutput>) {
-  const { config, setConfig } = useNodeUIContext(props);
-  const [jsonText, setJsonText] = useState(JSON.stringify(config.json, null, 2));
-  const [invalidJson, setInvalidJson] = useState(false);
-  const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    try {
-      const json = JSON.parse(evt.target.value);
-      setConfig({ json });
-      setJsonText(JSON.stringify(json, null, 2));
-      setInvalidJson(false);
-    } catch (error) {
-      setJsonText(evt.target.value);
-      setInvalidJson(true);
-    }
-  }, [setConfig]);
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={JsonNodeType}
-      handles={[
-        {
-          id: 'json',
-          type: 'source',
-          position: Position.Right
+  },
+  ui:
+    function JsonNodeUI(props: INodeProps<IJsonNodeConfig, IJsonNodeState, IJsonNodeInput, IJsonNodeOutput>) {
+      const { config, setConfig } = useNodeUIContext(props);
+      const [jsonText, setJsonText] = useState(JSON.stringify(config.json, null, 2));
+      const [invalidJson, setInvalidJson] = useState(false);
+      const onChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
+        try {
+          const json = JSON.parse(evt.target.value);
+          setConfig({ json });
+          setJsonText(JSON.stringify(json, null, 2));
+          setInvalidJson(false);
+        } catch {
+          setJsonText(evt.target.value);
+          setInvalidJson(true);
         }
-      ]}
-    >
-      <Textarea
-        placeholder="Enter json"
-        value={jsonText}
-        onChange={onChange}
-        className={`nowheel nodrag max-h-32 ${invalidJson ? ' focus-visible:ring-red-500/50' : ''}`}
-      />
-      {invalidJson && (
-        <p className="text-xs text-red-500 mt-1">Invalid JSON</p>
-      )}
-    </BaseNode>
-  );
-}
+      }, [setConfig]);
+
+      return (
+        <BaseNode
+          {...props}
+          nodeType={JsonNodeType}
+          handles={[
+            {
+              id: 'json',
+              type: 'source',
+              position: Position.Right
+            }
+          ]}
+        >
+          <Textarea
+            placeholder="Enter json"
+            value={jsonText}
+            onChange={onChange}
+            className={`nowheel nodrag max-h-32 ${invalidJson ? ' focus-visible:ring-red-500/50' : ''}`}
+          />
+          {invalidJson && (
+            <p className="text-xs text-red-500 mt-1">Invalid JSON</p>
+          )}
+        </BaseNode>
+      );
+    }
+};

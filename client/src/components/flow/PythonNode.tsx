@@ -69,12 +69,12 @@ async function runPythonCode(code: string): Promise<ExecutionResult> {
   try {
     const response = await axios.post<ExecutionResult>(`${config.apiUrl}/python-runner`, { code });
     return response.data;
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Error calling Python API:", e);
     return {
       output: null,
       exit_code: -1,
-      error: e.message,
+      error: e instanceof Error ? e.message : String(e),
       duration_seconds: null,
     };
   }
@@ -98,13 +98,12 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
         return acc;
       }, {}), null, 2),
       output: state.fullOutput ? state.fullOutput : JSON.stringify(log.output?.output, null, 2),
-      error: log.error || '',
+      error: log.error instanceof Error ? log.error.message : String(log.error),
     };
   }),
-  ui: PythonNodeUI,
   async run(context: INodeContext<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput>): Promise<IPythonNodeOutput> {
     context.updateState({ ...context.state, fullOutput: '' });
-    let params = [];
+    const params = [];
 
     for (const param of context.config.params) {
       if (context.input[param.id] === undefined) {
@@ -168,123 +167,124 @@ except Exception as e:
     } catch (parseError) {
       throw new Error(`Failed to parse Python output: ${parseError}\nOutput: ${jsonOutput}`);
     }
-  }
-};
+  },
+  ui:
+    function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput, IPythonNodeOutput>) {
 
-const ParamLabel = React.memo(({
-  id,
-  name,
-  onPramChange,
-  onRemoveParam
-}: {
-  id: string;
-  name: string;
-  onPramChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveParam: (id: string) => void;
-}) => {
-  return (
-    <div className="flex items-center justify-center space-x-2 p-1">
-      <Input
-        placeholder="Input Name"
-        className="text-xs nowheel nodrag"
-        value={name}
-        onChange={(evt) => onPramChange(id, evt)}
-      />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => { onRemoveParam(id) }}
-      >
-        <XCircle />
-      </Button>
-    </div>
-  );
-});
+      const ParamLabel = React.memo(({
+        id,
+        name,
+        onPramChange,
+        onRemoveParam
+      }: {
+        id: string;
+        name: string;
+        onPramChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+        onRemoveParam: (id: string) => void;
+      }) => {
+        return (
+          <div className="flex items-center justify-center space-x-2 p-1">
+            <Input
+              placeholder="Input Name"
+              className="text-xs nowheel nodrag"
+              value={name}
+              onChange={(evt) => onPramChange(id, evt)}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { onRemoveParam(id) }}
+            >
+              <XCircle />
+            </Button>
+          </div>
+        );
+      });
 
-function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput, IPythonNodeOutput>) {
-  const { config, setConfig, state } = useNodeUIContext(props);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+      const { config, setConfig, runState } = useNodeUIContext(props);
+      const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-  const systemPrompt = useMemo(() => {
-    return `You are an expert python programmer. Your task is to help the user with their code.
-Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
-You have to make sure the last code block is a valid full code.
-${codeDescription}
-Available params are: ${config.params.map(param => param.name).join(', ')} .`;
-  }, [config.params]);
+      const systemPrompt = useMemo(() => {
+        return `You are an expert python programmer. Your task is to help the user with their code.
+  Please think step by step and explain your analysis and plan, You need to answer in the language of the user's question.
+  You have to make sure the last code block is a valid full code.
+  ${codeDescription}
+  Available params are: ${config.params.map(param => param.name).join(', ')} .`;
+      }, [config.params]);
 
-  const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setConfig({ code: evt.target.value });
-  }, [setConfig]);
+      const onCodeChange = useCallback((evt: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setConfig({ code: evt.target.value });
+      }, [setConfig]);
 
-  const handleEditorCodeSave = useCallback((newCode: string) => {
-    setConfig({ code: newCode });
-  }, [setConfig]);
+      const handleEditorCodeSave = useCallback((newCode: string) => {
+        setConfig({ code: newCode });
+      }, [setConfig]);
 
-  const onAddParam = useCallback(() => {
-    const newParams = [...config.params, { id: generateId(), name: `var${config.params.length + 1}` }];
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
+      const onAddParam = useCallback(() => {
+        const newParams = [...config.params, { id: generateId(), name: `var${config.params.length + 1}` }];
+        setConfig({ params: newParams });
+      }, [config, setConfig]);
 
-  const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
-    const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
+      const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+        const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
+        setConfig({ params: newParams });
+      }, [config, setConfig]);
 
-  const onRemoveParam = useCallback((id: string) => {
-    const newParams = config.params.filter(param => param.id !== id);
-    setConfig({ params: newParams });
-  }, [config, setConfig]);
+      const onRemoveParam = useCallback((id: string) => {
+        const newParams = config.params.filter(param => param.id !== id);
+        setConfig({ params: newParams });
+      }, [config, setConfig]);
 
-  return (
-    <BaseNode
-      {...props}
-      nodeType={PythonNodeType}
-      handles={[
-        ...config.params.map(param => ({
-          id: param.id,
-          type: 'target' as const,
-          position: Position.Left,
-          label: <ParamLabel
-            id={param.id}
-            name={param.name}
-            onPramChange={onPramChange}
-            onRemoveParam={onRemoveParam}
+      return (
+        <BaseNode
+          {...props}
+          nodeType={PythonNodeType}
+          handles={[
+            ...config.params.map(param => ({
+              id: param.id,
+              type: 'target' as const,
+              position: Position.Left,
+              label: <ParamLabel
+                id={param.id}
+                name={param.name}
+                onPramChange={onPramChange}
+                onRemoveParam={onRemoveParam}
+              />
+            })),
+            {
+              id: 'output',
+              type: 'source' as const,
+              position: Position.Right,
+              label: "Output",
+              className: 'mb-2'
+            }
+          ]}
+        >
+          <Button variant="outline" className='w-full' onClick={onAddParam}>
+            Add Input
+          </Button>
+          <Separator className='my-2' />
+          <Textarea
+            placeholder='Python Code'
+            value={config.code}
+            onChange={onCodeChange}
+            className='nowheel nodrag whitespace-pre-wrap break-all max-h-32'
           />
-        })),
-        {
-          id: 'output',
-          type: 'source' as const,
-          position: Position.Right,
-          label: "Output",
-          className: 'mb-2'
-        }
-      ]}
-    >
-      <Button variant="outline" className='w-full' onClick={onAddParam}>
-        Add Input
-      </Button>
-      <Separator className='my-2' />
-      <Textarea
-        placeholder='Python Code'
-        value={config.code}
-        onChange={onCodeChange}
-        className='nowheel nodrag whitespace-pre-wrap break-all max-h-32'
-      />
-      <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
-        <Code /> Code Editor
-      </Button>
-      <Separator className='my-2' />
-      <CodeEditorDialog
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        code={config.code}
-        onCodeChange={handleEditorCodeSave}
-        language="python"
-        title="Edit Python Code"
-        systemPrompt={systemPrompt}
-        runLogs={state.fullOutput}
-      />
-    </BaseNode>
-  );
-}
+          <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
+            <Code /> Code Editor
+          </Button>
+          <Separator className='my-2' />
+          <CodeEditorDialog
+            isOpen={isEditorOpen}
+            onClose={() => setIsEditorOpen(false)}
+            code={config.code}
+            onCodeChange={handleEditorCodeSave}
+            language="python"
+            title="Edit Python Code"
+            systemPrompt={systemPrompt}
+            runLogs={JSON.stringify(runState.logs)}
+          />
+        </BaseNode>
+      );
+    }
+};

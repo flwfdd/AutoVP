@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // 在web worker中执行js代码
-export async function workerEval(code: string, params: Record<string, any>): Promise<{ output: any; logs: string[] }> {
+export async function workerEval(code: string, params: Record<string, unknown>): Promise<{ output: unknown; logs: string[] }> {
   const worker = new Worker(new URL('./js-runner.worker.ts', import.meta.url), {
     type: 'module'
   });

@@ -1,4 +1,4 @@
-import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { Position } from '@xyflow/react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
@@ -14,7 +14,7 @@ type IImageNodeOutput = z.infer<typeof ImageNodeOutputSchema>;
 const ImageNodeConfigSchema = BaseNodeConfigSchema.extend({});
 type IImageNodeConfig = z.infer<typeof ImageNodeConfigSchema>;
 
-interface IImageNodeState extends IBaseNodeState { }
+type IImageNodeState = IBaseNodeState;
 
 export const ImageNodeType: INodeType<IImageNodeConfig, IImageNodeState, IImageNodeInput, IImageNodeOutput> = {
   configSchema: ImageNodeConfigSchema,
@@ -28,39 +28,37 @@ export const ImageNodeType: INodeType<IImageNodeConfig, IImageNodeState, IImageN
     description: '',
   },
   defaultState: BaseNodeDefaultState,
-  ui: ImageNodeUI,
-  async run(_context: INodeContext<IImageNodeConfig, IImageNodeState, IImageNodeInput>): Promise<IImageNodeOutput> {
+  async run() {
     return {};
+  },
+  ui: function ImageNodeUI(props: INodeProps<IImageNodeConfig, IImageNodeState, IImageNodeInput, IImageNodeOutput>) {
+    const { runState, config } = useNodeUIContext(props);
+    const imageSrc = runState.input.src;
+
+    return (
+      <BaseNode
+        {...props}
+        nodeType={ImageNodeType}
+        handles={[
+          {
+            id: 'src',
+            type: 'target',
+            position: Position.Left,
+          }
+        ]}
+      >
+        <div className="flex justify-center items-center">
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={config.name}
+              className="rounded-md"
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">Empty</span>
+          )}
+        </div>
+      </BaseNode>
+    );
   }
 };
-
-function ImageNodeUI(props: INodeProps<IImageNodeConfig, IImageNodeState, IImageNodeInput, IImageNodeOutput>) {
-  const { runState, config } = useNodeUIContext(props);
-  const imageSrc = runState.input.src;
-
-  return (
-    <BaseNode
-      {...props}
-      nodeType={ImageNodeType}
-      handles={[
-        {
-          id: 'src',
-          type: 'target',
-          position: Position.Left,
-        }
-      ]}
-    >
-      <div className="flex justify-center items-center">
-        {imageSrc ? (
-          <img
-            src={imageSrc}
-            alt={config.name}
-            className="rounded-md"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground">Empty</span>
-        )}
-      </div>
-    </BaseNode>
-  );
-}
