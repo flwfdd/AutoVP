@@ -15,6 +15,36 @@ import { z } from "zod";
 import BaseNode from './base/BaseNode';
 import CodeEditorDialog from './editor/CodeEditorDialog';
 
+const ParamLabel = React.memo(({
+  id,
+  name,
+  onParamChange,
+  onRemoveParam
+}: {
+  id: string;
+  name: string;
+  onParamChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveParam: (id: string) => void;
+}) => {
+  return (
+    <div className="flex items-center justify-center space-x-2 p-1">
+      <Input
+        placeholder="Input Name"
+        className="text-xs nowheel nodrag"
+        value={name}
+        onChange={(evt) => onParamChange(id, evt)}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => { onRemoveParam(id) }}
+      >
+        <XCircle />
+      </Button>
+    </div>
+  );
+});
+
 const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
@@ -171,36 +201,6 @@ except Exception as e:
   ui:
     function PythonNodeUI(props: INodeProps<IPythonNodeConfig, IPythonNodeState, IPythonNodeInput, IPythonNodeOutput>) {
 
-      const ParamLabel = React.memo(({
-        id,
-        name,
-        onPramChange,
-        onRemoveParam
-      }: {
-        id: string;
-        name: string;
-        onPramChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
-        onRemoveParam: (id: string) => void;
-      }) => {
-        return (
-          <div className="flex items-center justify-center space-x-2 p-1">
-            <Input
-              placeholder="Input Name"
-              className="text-xs nowheel nodrag"
-              value={name}
-              onChange={(evt) => onPramChange(id, evt)}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => { onRemoveParam(id) }}
-            >
-              <XCircle />
-            </Button>
-          </div>
-        );
-      });
-
       const { config, setConfig, runState } = useNodeUIContext(props);
       const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -225,7 +225,7 @@ except Exception as e:
         setConfig({ params: newParams });
       }, [config, setConfig]);
 
-      const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+      const onParamChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
         const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
         setConfig({ params: newParams });
       }, [config, setConfig]);
@@ -247,7 +247,7 @@ except Exception as e:
               label: <ParamLabel
                 id={param.id}
                 name={param.name}
-                onPramChange={onPramChange}
+                onParamChange={onParamChange}
                 onRemoveParam={onRemoveParam}
               />
             })),

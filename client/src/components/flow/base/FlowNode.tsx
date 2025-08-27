@@ -77,15 +77,8 @@ export function newFlowNodeType(id: string, name: string, description: string, n
               position: Position.Left,
               label: param.name
             }));
-          } else {
-            // 如果没有自定义参数，使用传统的单一输入
-            return [{
-              id: 'input',
-              type: 'target' as const,
-              position: Position.Left,
-              label: 'Input'
-            }];
           }
+          return [];
         }, [state.type.nodes]);
 
         return (

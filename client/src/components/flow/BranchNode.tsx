@@ -13,6 +13,36 @@ import { z } from 'zod';
 import BaseNode from './base/BaseNode';
 import CodeEditorDialog from './editor/CodeEditorDialog';
 
+const BranchLabel = React.memo(({
+  id,
+  name,
+  onBranchChange,
+  onRemoveBranch
+}: {
+  id: string;
+  name: string;
+  onBranchChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveBranch: (id: string) => void;
+}) => {
+  return (
+    <div className="flex items-center justify-center space-x-2 p-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => { onRemoveBranch(id) }}
+      >
+        <XCircle />
+      </Button>
+      <Input
+        placeholder="Branch Name"
+        className="text-xs nowheel nodrag"
+        value={name}
+        onChange={(evt) => onBranchChange(id, evt)}
+      />
+    </div>
+  );
+});
+
 const BranchNodeInputSchema = BaseNodeInputSchema.extend({
   input: z.any().describe('input to the branch node'),
 });
@@ -110,36 +140,6 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
     }
   },
   ui: function BranchNodeUI(props: INodeProps<IBranchNodeConfig, IBranchNodeState, IBranchNodeInput, IBranchNodeOutput>) {
-    const BranchLabel = React.memo(({
-      id,
-      name,
-      onBranchChange,
-      onRemoveBranch
-    }: {
-      id: string;
-      name: string;
-      onBranchChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
-      onRemoveBranch: (id: string) => void;
-    }) => {
-      return (
-        <div className="flex items-center justify-center space-x-2 p-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => { onRemoveBranch(id) }}
-          >
-            <XCircle />
-          </Button>
-          <Input
-            placeholder="Branch Name"
-            className="text-xs nowheel nodrag"
-            value={name}
-            onChange={(evt) => onBranchChange(id, evt)}
-          />
-        </div>
-      );
-    });
-
     const { config, setConfig, runState } = useNodeUIContext(props);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
 

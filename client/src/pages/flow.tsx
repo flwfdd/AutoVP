@@ -14,7 +14,7 @@ import {
   Connection,
   NodeTypes,
 } from '@xyflow/react';
-import { ArrowLeft, EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sparkles, Sun, SunMoon } from "lucide-react";
+import { EllipsisVertical, FileDown, FileUp, Loader, Moon, PanelLeftClose, PanelRightClose, PlayCircle, Plus, ScrollText, Sparkles, Sun, SunMoon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import '@xyflow/react/dist/style.css';
@@ -95,8 +95,16 @@ const initialNodes: Node[] = [
 ];
 const initialEdges: Edge[] = [];
 
+const initialFlowNodeType: IFlowNodeType = newFlowNodeType("flow_main", "Main Flow", "Main flow", [], [])
+
 function Flow() {
   const { flowNodeTypes, setFlowNodeTypes } = useFlowNodeTypes();
+  useEffect(() => {
+    if (flowNodeTypes.length === 0) {
+      setFlowNodeTypes([initialFlowNodeType]);
+    }
+  }, [flowNodeTypes, setFlowNodeTypes]);
+
   // 注册节点类型
   const allNodeTypes = useMemo(() => [...basicNodeTypes, ...specialNodeTypes, ...flowNodeTypes], [flowNodeTypes]);
   const nodeTypeMap = useMemo(() => allNodeTypes.reduce<Record<string, INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>>>((acc, nodeType) => {
@@ -116,14 +124,7 @@ function Flow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { screenToFlowPosition, updateNodeData, fitView } = useReactFlow();
 
-  // 编辑Flow时缓存的主流
-  interface IMainFlow {
-    nodes: INodeWithPosition[];
-    edges: IEdge[];
-  }
-  const [mainFlow, setMainFlow] = useState<IMainFlow | null>(null);
-
-  const [editingFlow, setEditingFlow] = useState<IFlowNodeType | null>(null);
+  const [editingFlowId, setEditingFlowId] = useState<string>(initialFlowNodeType.id);
 
   // 主题
   const { isDarkMode, setTheme, theme } = useTheme();
@@ -266,13 +267,15 @@ function Flow() {
     setIsAICopilotDialogOpen(true);
   }, []);
 
-
-
   // 导入流
   const importDSL = useCallback((dsl: IDSL) => {
-    const { main, flowNodeTypes } = loadDSL(dsl, nodeTypeMap, newFlowNodeType);
-    setNodes(main.nodes.map(fromIDSLNode));
-    setEdges(main.edges.map(fromIDSLEdge));
+    const { mainFlowId, flowNodeTypes } = loadDSL(dsl, nodeTypeMap, newFlowNodeType);
+    const mainFlow = flowNodeTypes.find(flow => flow.id === mainFlowId);
+    if (!mainFlow) {
+      throw new Error(`Main flow with ID "${mainFlowId}" not found`);
+    }
+    setNodes(mainFlow.nodes.map(fromIDSLNode));
+    setEdges(mainFlow.edges.map(fromIDSLEdge));
     setFlowNodeTypes(flowNodeTypes);
     fitView();
   }, [nodeTypeMap, setNodes, setEdges, setFlowNodeTypes, fromIDSLNode, fromIDSLEdge, fitView]);
@@ -288,19 +291,19 @@ function Flow() {
 
   // 获取当前流的DSL
   const exportDSL = useCallback(() => {
-    const iNodes = nodes.map((node) => toINode(node));
-    const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
+    // 由于循环引用问题，不能直接调用saveEditingFlow，所以需要创建一个临时的flowNodeTypes
+    const tempFlowNodeTypes = [...flowNodeTypes];
+    const tempEditingFlow = tempFlowNodeTypes.find(ft => ft.id === editingFlowId);
+    if (tempEditingFlow) {
+      tempEditingFlow.nodes = nodes.map((node) => toINode(node));
+      tempEditingFlow.edges = edges.map(toIEdge).filter((edge): edge is IEdge => edge !== null);
+    }
+
     return dumpDSL({
-      main: {
-        id: 'main',
-        name: 'Main',
-        description: 'Main flow',
-        nodes: iNodes,
-        edges: iEdges,
-      },
-      flowNodeTypes: Object.values(flowNodeTypes),
+      mainFlowId: editingFlowId,
+      flowNodeTypes: tempFlowNodeTypes,
     });
-  }, [nodes, edges, toINode, toIEdge, flowNodeTypes]);
+  }, [editingFlowId, flowNodeTypes, nodes, edges, toINode, toIEdge]);
 
   // 导出流
   const handleExport = useCallback(() => {
@@ -310,7 +313,10 @@ function Flow() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'flow.json';
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const fileName = `flow_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+    a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
   }, [exportDSL]);
@@ -423,63 +429,70 @@ function Flow() {
     }, 5000);
   }, [setIsRunLogDialogOpen, updateNodeData]);
 
+
   const saveEditingFlow = useCallback(() => {
-    if (!editingFlow) return;
+    if (!editingFlowId) return;
     setFlowNodeTypes(prevTypes => prevTypes.map(ft => {
-      if (ft.id === editingFlow.id) {
+      if (ft.id === editingFlowId) {
         ft.nodes = nodes.map((node) => toINode(node));
         ft.edges = edges.map(toIEdge).filter((edge): edge is IEdge => edge !== null);
       }
       return ft;
     }))
-  }, [editingFlow, setFlowNodeTypes, nodes, edges, toINode, toIEdge]);
+  }, [editingFlowId, setFlowNodeTypes, nodes, edges, toINode, toIEdge]);
 
   const handleEditFlow = useCallback((flowType: IFlowNodeType) => {
     setIsEditFlowDialogOpen(false);
-    if (editingFlow) {
-      // 如果正在编辑其他Flow，则先保存
-      saveEditingFlow();
-    } else {
-      // 否则保存主Flow
-      setMainFlow({
-        nodes: nodes.map((node) => toINode(node)),
-        edges: edges.map(toIEdge).filter((edge): edge is IEdge => edge !== null),
-      })
-    }
-    setEditingFlow(flowType);
+    saveEditingFlow();
+    setEditingFlowId(flowType.id);
     setNodes(flowType.nodes.map(fromIDSLNode));
     setEdges(flowType.edges.map(fromIDSLEdge));
-  }, [setIsEditFlowDialogOpen, nodes, setNodes, edges, setEdges, setMainFlow, fromIDSLNode, fromIDSLEdge, toINode, toIEdge, editingFlow, setEditingFlow, saveEditingFlow])
+  }, [setIsEditFlowDialogOpen, saveEditingFlow, setEditingFlowId, setNodes, setEdges, fromIDSLNode, fromIDSLEdge])
 
-  const handleBackToMainFlow = useCallback(() => {
-    if (!editingFlow) return;
+  // 新建Flow
+  const handleNewFlow = useCallback(() => {
+    // 保存当前的Flow
     saveEditingFlow();
-    setEditingFlow(null);
-    setNodes(mainFlow?.nodes.map(fromIDSLNode) ?? []);
-    setEdges(mainFlow?.edges.map(fromIDSLEdge) ?? []);
-  }, [editingFlow, saveEditingFlow, setEditingFlow, setNodes, setEdges, mainFlow, fromIDSLNode, fromIDSLEdge]);
+    setNodes(initialNodes);
+    setEdges(initialEdges);
 
-  // 将当前Flow注册为类型
-  const handleRegisterFlow = useCallback(() => {
-    const iNodes = nodes.map((node) => toINode(node));
-    const iEdges = edges.map((edge) => toIEdge(edge)).filter((edge): edge is IEdge => edge !== null);
     // 保证flow节点的id由flow_开头
     const newId = 'flow_' + generateId();
     const newName = `Flow ${flowNodeTypes.length + 1}`;
     const newDescription = `Custom flow type created on ${new Date().toLocaleString()}`;
-    const flowNodeType = newFlowNodeType(newId, newName, newDescription, iNodes, iEdges);
+    const flowNodeType = newFlowNodeType(newId, newName, newDescription, [], []);
+    console.log('flowNodeType1', flowNodeType);
     setFlowNodeTypes(prevTypes => [...prevTypes, flowNodeType]);
-
-    // 重置主流程到初始状态
-    setNodes(initialNodes);
-    setEdges(initialEdges);
+    console.log('flowNodeType2', flowNodeType);
+    setEditingFlowId(flowNodeType.id);
 
     // 自动弹出编辑窗口
     setEditingFlowInfoType(flowNodeType);
     setIsEditFlowDialogOpen(true);
 
     toast.info(`New flow type "${newName}" added.`);
-  }, [flowNodeTypes, nodes, edges, toINode, toIEdge, setFlowNodeTypes, setNodes, setEdges, setEditingFlowInfoType, setIsEditFlowDialogOpen]);
+  }, [saveEditingFlow, setNodes, setEdges, flowNodeTypes, setFlowNodeTypes, setEditingFlowInfoType, setIsEditFlowDialogOpen]);
+
+  // 切换Flow
+  const handleSwitchFlow = useCallback((flowType: IFlowNodeType) => {
+    if (flowType.id === editingFlowId) {
+      return;
+    }
+    // 1. 保存当前正在编辑的flow
+    saveEditingFlow();
+
+    // 2. 加载新flow的数据到画布上
+    setNodes(flowType.nodes.map(fromIDSLNode));
+    setEdges(flowType.edges.map(fromIDSLEdge));
+
+    // 3. 更新当前正在编辑的flow的ID
+    setEditingFlowId(flowType.id);
+
+    // 4. 让视图适应新加载的节点
+    setTimeout(() => fitView(), 50);
+
+  }, [editingFlowId, saveEditingFlow, setNodes, setEdges, fromIDSLNode, fromIDSLEdge, setEditingFlowId, fitView]);
+
 
 
   return (
@@ -515,17 +528,10 @@ function Flow() {
               <Sparkles />
               AI Copilot
             </Button>
-            {editingFlow ? (
-              <Button className="w-full" onClick={handleBackToMainFlow}>
-                <ArrowLeft />
-                Back to Main Flow
-              </Button>
-            ) : (
-              <Button variant="outline" className="w-full" onClick={handleRegisterFlow}>
-                <Plus />
-                Register Flow
-              </Button>
-            )}
+            <Button variant="outline" className="w-full" onClick={handleNewFlow}>
+              <Plus />
+              New Flow
+            </Button>
           </div>
 
           <Separator className="mt-2" />
@@ -556,9 +562,11 @@ function Flow() {
                 .map((nodeType) => (
                   <div key={nodeType.id} className="flex items-center gap-1">
                     <Button
+                      variant={editingFlowId === nodeType.id ? 'outline' : 'default'}
                       draggable
                       className="flex-1 min-w-0"
                       onDragStart={(event) => event.dataTransfer.setData('application/reactflow', nodeType.id)}
+                      onClick={() => handleSwitchFlow(nodeType)}
                     >
                       <span className="truncate">{nodeType.name}</span>
                     </Button>
@@ -640,14 +648,14 @@ Flow DSL: ${JSON.stringify(dumpFlow(editingFlowInfoType))}` : undefined}
       <LogDialog
         isLogDialogOpen={isRunLogDialogOpen}
         setIsLogDialogOpen={setIsRunLogDialogOpen}
-        nodes={nodes.map(node => toINode(node, true, false))}
+        nodes={useMemo(() => nodes.map(node => toINode(node, true, false)), [nodes, toINode])}
         highlightNode={highlightNode}
       ></LogDialog>
 
       <AICopilotDialog
         isOpen={isAICopilotDialogOpen}
         onClose={() => setIsAICopilotDialogOpen(false)}
-        DSL={exportDSL()}
+        DSL={useMemo(() => exportDSL(), [exportDSL])}
         setDSL={handleDSLUpdate}
         nodeTypeMap={nodeTypeMap}
         newFlowNodeType={newFlowNodeType}
@@ -778,14 +786,14 @@ ${fullLogData}
       <DialogContent className="min-w-full min-h-full max-w-full max-h-full flex flex-col p-4 rounded-none">
         <DialogHeader className="shrink-0">
           <DialogTitle>Run Logs</DialogTitle>
-          <DialogDescription>
-            <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center">
+            <DialogDescription>
               Timeline logs of recent flow run. You can also use the AI assistant to analyze logs.
-              <Button variant="ghost" size="icon" onClick={() => setIsShowAiPanel(!isShowAiPanel)}>
-                {isShowAiPanel ? <PanelRightClose /> : <PanelLeftClose />}
-              </Button>
-            </div>
-          </DialogDescription>
+            </DialogDescription>
+            <Button variant="ghost" size="icon" onClick={() => setIsShowAiPanel(!isShowAiPanel)}>
+              {isShowAiPanel ? <PanelRightClose /> : <PanelLeftClose />}
+            </Button>
+          </div>
         </DialogHeader>
         <div className="flex-1 flex flex-row gap-4 overflow-hidden min-h-0">
           <div className="flex-1 min-h-0 overflow-y-auto">

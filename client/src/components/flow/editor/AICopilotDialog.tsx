@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import configGlobal from '@/lib/config';
-import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema, INodeState, INodeConfig, INodeOutput, INodeInput, dumpDSL, IFlow } from '@/lib/flow/flow';
+import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema, INodeState, INodeConfig, INodeOutput, INodeInput, dumpDSL } from '@/lib/flow/flow';
 import { reactStream, createExecutableTool, Message, ExecutableTool } from '@/lib/llm';
 import { Editor } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, Loader, PanelLeftClose, PanelRightClose, Trash2 } from 'lucide-react';
@@ -113,6 +113,7 @@ function AICopilotDialog({
       setChatHistory([]);
       setDslError('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); // DSL更新时不能重置状态
 
   useEffect(() => {
@@ -166,12 +167,12 @@ function AICopilotDialog({
     // Helper function to update DSL and editor
     const updateDSLAndEditor = (newDSL: unknown, successMessage: string) => {
       try {
-        // Validate the DSL
-        const validatedDSL = loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
-
         // Update the DSL string in the editor
         const newDslString = JSON.stringify(newDSL, null, 2);
         setDslString(newDslString);
+
+        // Validate the DSL
+        const validatedDSL = loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
 
         // Automatically apply the changes if DSL is valid
         setDSL(dumpDSL(validatedDSL));
@@ -188,22 +189,22 @@ function AICopilotDialog({
 
     // Define tool parameter schemas
     const EditNodeParamsSchema = z.object({
-      flowId: z.string().optional().describe('ID of the flow to edit. Defaults to "main" if not specified.'),
+      flowId: z.string().describe('ID of the flow to edit.'),
       node: NodeDSLSchema.describe('Node to create or update')
     });
 
     const RemoveNodeParamsSchema = z.object({
-      flowId: z.string().optional().describe('ID of the flow to edit. Defaults to "main" if not specified.'),
+      flowId: z.string().describe('ID of the flow to edit.'),
       nodeId: z.string().describe('ID of the node to remove')
     });
 
     const EditEdgeParamsSchema = z.object({
-      flowId: z.string().optional().describe('ID of the flow to edit. Defaults to "main" if not specified.'),
+      flowId: z.string().describe('ID of the flow to edit.'),
       edge: EdgeDSLSchema.describe('Edge to create or update')
     });
 
     const RemoveEdgeParamsSchema = z.object({
-      flowId: z.string().optional().describe('ID of the flow to edit. Defaults to "main" if not specified.'),
+      flowId: z.string().describe('ID of the flow to edit.'),
       edgeId: z.string().describe('ID of the edge to remove')
     });
 
@@ -218,17 +219,12 @@ function AICopilotDialog({
       EditNodeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        const flowId = args.flowId || 'main';
+        const flowId = args.flowId;
 
         // Find the target flow
-        let targetFlow;
-        if (flowId === 'main') {
-          targetFlow = currentDSL.main;
-        } else {
-          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
-          if (!targetFlow) {
-            throw new Error(`Flow with id "${flowId}" not found`);
-          }
+        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        if (!targetFlow) {
+          throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find existing node index
@@ -257,17 +253,12 @@ function AICopilotDialog({
       RemoveNodeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        const flowId = args.flowId || 'main';
+        const flowId = args.flowId;
 
         // Find the target flow
-        let targetFlow;
-        if (flowId === 'main') {
-          targetFlow = currentDSL.main;
-        } else {
-          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
-          if (!targetFlow) {
-            throw new Error(`Flow with id "${flowId}" not found`);
-          }
+        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        if (!targetFlow) {
+          throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find and remove the node
@@ -294,17 +285,12 @@ function AICopilotDialog({
       EditEdgeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        const flowId = args.flowId || 'main';
+        const flowId = args.flowId;
 
         // Find the target flow
-        let targetFlow;
-        if (flowId === 'main') {
-          targetFlow = currentDSL.main;
-        } else {
-          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
-          if (!targetFlow) {
-            throw new Error(`Flow with id "${flowId}" not found`);
-          }
+        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        if (!targetFlow) {
+          throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find existing edge index
@@ -329,17 +315,12 @@ function AICopilotDialog({
       RemoveEdgeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        const flowId = args.flowId || 'main';
+        const flowId = args.flowId;
 
         // Find the target flow
-        let targetFlow;
-        if (flowId === 'main') {
-          targetFlow = currentDSL.main;
-        } else {
-          targetFlow = currentDSL.flows?.find((f: IFlow) => f.id === flowId);
-          if (!targetFlow) {
-            throw new Error(`Flow with id "${flowId}" not found`);
-          }
+        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        if (!targetFlow) {
+          throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find and remove the edge
@@ -361,7 +342,6 @@ function AICopilotDialog({
       UpdateDSLParamsSchema,
       async (args) => {
         const result = updateDSLAndEditor(args.dsl, 'DSL updated successfully');
-        args.dsl.main.nodes.forEach((node) => setNodeReviewed(node.id, false));
         args.dsl.flows?.forEach((flow) => flow.nodes.forEach((node) => setNodeReviewed(node.id, false)));
         return result;
       }
@@ -569,7 +549,7 @@ ${dslError}
         removeNodeTool,
         editEdgeTool,
         removeEdgeTool
-      ] as ExecutableTool<Record<string, unknown>>[], 10);
+      ] as unknown as ExecutableTool<Record<string, unknown>>[], 10);
 
       for await (const event of eventStream) {
         switch (event.type) {

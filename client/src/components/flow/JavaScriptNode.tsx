@@ -13,6 +13,36 @@ import { z } from "zod";
 import BaseNode from './base/BaseNode';
 import CodeEditorDialog from './editor/CodeEditorDialog';
 
+const ParamLabel = React.memo(({
+  id,
+  name,
+  onParamChange,
+  onRemoveParam
+}: {
+  id: string;
+  name: string;
+  onParamChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveParam: (id: string) => void;
+}) => {
+  return (
+    <div className="flex items-center justify-center space-x-2 p-1">
+      <Input
+        placeholder="Input Name"
+        className="text-xs nowheel nodrag"
+        value={name}
+        onChange={(evt) => onParamChange(id, evt)}
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => { onRemoveParam(id) }}
+      >
+        <XCircle />
+      </Button>
+    </div>
+  );
+});
+
 const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
 type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
 
@@ -95,36 +125,6 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
     return { output: result.output };
   },
   ui: function JavaScriptNodeUI(props: INodeProps<IJavaScriptNodeConfig, IJavaScriptNodeState, IJavaScriptNodeInput, IJavaScriptNodeOutput>) {
-    const ParamLabel = React.memo(({
-      id,
-      name,
-      onPramChange,
-      onRemoveParam
-    }: {
-      id: string;
-      name: string;
-      onPramChange: (id: string, evt: React.ChangeEvent<HTMLInputElement>) => void;
-      onRemoveParam: (id: string) => void;
-    }) => {
-      return (
-        <div className="flex items-center justify-center space-x-2 p-1">
-          <Input
-            placeholder="Input Name"
-            className="text-xs nowheel nodrag"
-            value={name}
-            onChange={(evt) => onPramChange(id, evt)}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => { onRemoveParam(id) }}
-          >
-            <XCircle />
-          </Button>
-        </div>
-      );
-    });
-
     const { config, setConfig, runState } = useNodeUIContext(props);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -151,7 +151,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
     }, [config, setConfig]);
 
     // 编辑输入参数
-    const onPramChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
+    const onParamChange = useCallback((id: string, evt: React.ChangeEvent<HTMLInputElement>) => {
       const newParams = config.params.map(param => param.id === id ? { ...param, name: evt.target.value } : param);
       setConfig({ params: newParams });
     }, [config, setConfig]);
@@ -174,7 +174,7 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
             label: <ParamLabel
               id={param.id}
               name={param.name}
-              onPramChange={onPramChange}
+              onParamChange={onParamChange}
               onRemoveParam={onRemoveParam}
             />
           })),

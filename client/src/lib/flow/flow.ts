@@ -465,7 +465,7 @@ export const NodeDSLSchema = z.object({
 
 // 连接点 DSL Schema
 export const HandleDSLSchema = z.object({
-  node: z.string(),
+  nodeId: z.string(),
   key: z.string(),
 });
 
@@ -488,7 +488,7 @@ export type IFlowDSL = z.infer<typeof FlowDSLSchema>;
 
 // 导出 DSL Schema
 export const DSLSchema = z.object({
-  main: FlowDSLSchema,
+  mainFlowId: z.string(),
   flows: FlowDSLSchema.array(),
 });
 export type IDSL = z.infer<typeof DSLSchema>;
@@ -522,11 +522,11 @@ export function dumpFlow(input: IFlow): IFlowDSL {
     edges: input.edges.map((edge) => ({
       id: edge.id,
       source: {
-        node: edge.source.node.id,
+        nodeId: edge.source.node.id,
         key: edge.source.key,
       },
       target: {
-        node: edge.target.node.id,
+        nodeId: edge.target.node.id,
         key: edge.target.key,
       },
     })),
@@ -535,14 +535,14 @@ export function dumpFlow(input: IFlow): IFlowDSL {
 
 // 和DSL相互转换的抽象
 interface IDumpDSLIO {
-  main: IFlow;
+  mainFlowId: string;
   flowNodeTypes: IFlowNodeType[];
 }
 
 // 导出完整工程DSL
 export function dumpDSL(input: IDumpDSLIO): IDSL {
   return {
-    main: dumpFlow(input.main),
+    mainFlowId: input.mainFlowId,
     flows: input.flowNodeTypes.map(dumpFlow),
   }
 }
@@ -631,12 +631,12 @@ function loadFlow(
   // 预先验证所有边的引用
   for (const edgeDSL of dsl.edges) {
     // 检查源节点是否存在
-    if (!nodeIds.has(edgeDSL.source.node)) {
-      throw new Error(`Edge "${edgeDSL.id}" references non-existent source node "${edgeDSL.source.node}".`);
+    if (!nodeIds.has(edgeDSL.source.nodeId)) {
+      throw new Error(`Edge "${edgeDSL.id}" references non-existent source node "${edgeDSL.source.nodeId}".`);
     }
     // 检查目标节点是否存在
-    if (!nodeIds.has(edgeDSL.target.node)) {
-      throw new Error(`Edge "${edgeDSL.id}" references non-existent target node "${edgeDSL.target.node}".`);
+    if (!nodeIds.has(edgeDSL.target.nodeId)) {
+      throw new Error(`Edge "${edgeDSL.id}" references non-existent target node "${edgeDSL.target.nodeId}".`);
     }
     // 当前我们先跳过key验证，因为在我们的系统中key可能是动态的
     // 在未来，我们可以添加更严格的key验证，例如通过收集节点类型支持的输入/输出键
@@ -648,7 +648,10 @@ function loadFlow(
   const duplicateTargets = new Set<string>();
 
   for (const edgeDSL of dsl.edges) {
-    const targetKey = `${edgeDSL.target.node}:${edgeDSL.target.key}`;
+    if (edgeDSL.target.nodeId === "end") {
+      continue;
+    }
+    const targetKey = `${edgeDSL.target.nodeId}:${edgeDSL.target.key}`;
 
     if (targetConnectionPoints.has(targetKey)) {
       // 发现重复的目标连接点
@@ -667,8 +670,8 @@ function loadFlow(
   }
 
   const edges = dsl.edges.map((edgeDSL) => {
-    const sourceNode = nodes.find(n => n.id === edgeDSL.source.node);
-    const targetNode = nodes.find(n => n.id === edgeDSL.target.node);
+    const sourceNode = nodes.find(n => n.id === edgeDSL.source.nodeId);
+    const targetNode = nodes.find(n => n.id === edgeDSL.target.nodeId);
     if (!sourceNode || !targetNode) {
       throw new Error(`Edge "${edgeDSL.id}" connects to non-existent node(s).`);
     }
@@ -739,7 +742,11 @@ export function loadDSL(
       throw error;
     }
   }
-  // 构建子流类型映射 节点和边先留空避免循环依赖
+  // 检查主流程ID是否包含在flows中
+  if (!dsl.flows.some(flow => flow.id === dsl.mainFlowId)) {
+    throw new Error(`Main flow ID "${dsl.mainFlowId}" not found in flows`);
+  }
+  // 构建流类型映射 节点和边先留空避免循环依赖
   const flowNodeTypeMap = dsl.flows.reduce<Record<string, IFlowNodeType>>((acc, flow) => {
     const flowNodeType = newFlowNodeType(flow.id, flow.name, flow.description, [], []);
     acc[flowNodeType.id] = flowNodeType;
@@ -753,9 +760,8 @@ export function loadDSL(
     flowNodeType.nodes = flow.nodes;
     flowNodeType.edges = flow.edges;
   });
-  // 加载主流程
   return {
-    main: loadFlow(dsl.main, allNodeTypeMap),
+    mainFlowId: dsl.mainFlowId,
     flowNodeTypes: flows.map(flow => flowNodeTypeMap[flow.id]),
   }
 }

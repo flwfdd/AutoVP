@@ -7,8 +7,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import configGlobal from '@/lib/config';
-import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState, BaseNodeDefaultState } from '@/lib/flow/flow';
-import { react, ExecutableTool, llm, createExecutableTool } from '@/lib/llm';
+import { BaseNodeConfigSchema, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext, runFlow, IRunFlowStack, defaultNodeRunState, BaseNodeDefaultState, INodeRunLog } from '@/lib/flow/flow';
+import { react, ExecutableTool, llm, createExecutableTool, Message } from '@/lib/llm';
 import { Position } from '@xyflow/react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { z } from 'zod';
@@ -35,7 +35,9 @@ const AgentNodeConfigSchema = BaseNodeConfigSchema.extend({
 });
 type IAgentNodeConfig = z.infer<typeof AgentNodeConfigSchema>;
 
-type IAgentNodeState = IBaseNodeState;
+interface IAgentNodeState extends IBaseNodeState {
+    fullMessages?: Message[]; // 存储完整的对话历史
+}
 
 export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentNodeInput, IAgentNodeOutput> = {
     configSchema: AgentNodeConfigSchema,
@@ -52,23 +54,49 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
         toolFlowIds: [],
         maxIterations: 10
     },
-    defaultState: BaseNodeDefaultState,
-    async run(context: INodeContext<IAgentNodeConfig, IBaseNodeState, IAgentNodeInput>): Promise<IAgentNodeOutput> {
+    defaultState: { ...BaseNodeDefaultState, fullMessages: [] },
+    logFormatter: ((_config: IAgentNodeConfig, state: IAgentNodeState, log: INodeRunLog<IAgentNodeInput, IAgentNodeOutput>) => {
+        return {
+            ...log,
+            input: JSON.stringify(log.input.prompt, null, 2),
+            // 显示完整的对话历史
+            output: state.fullMessages ? JSON.stringify(state.fullMessages, null, 2) : JSON.stringify(log.output?.output, null, 2),
+            error: log.error ? JSON.stringify(log.error, null, 2) : ''
+        };
+    }),
+    async run(context: INodeContext<IAgentNodeConfig, IAgentNodeState, IAgentNodeInput>): Promise<IAgentNodeOutput> {
+        // 初始化 state，清空之前的对话历史
+        context.updateState({ ...context.state, fullMessages: [] });
+
         if (!context.config.model) {
             throw new Error("No LLM model selected or configured.");
         }
 
+        let allMessages: Message[] = [];
+
         // If no tools are selected, just run as a simple LLM
         if (context.config.toolFlowIds.length === 0) {
-            const response = await llm(context.config.model, [
-                { role: 'system', content: context.config.systemPrompt },
-                { role: 'user', content: typeof context.input.prompt === 'string' ? context.input.prompt : JSON.stringify(context.input.prompt) },
-            ], []);
-            return { output: response.content || 'No response generated' };
+            const userPrompt = typeof context.input.prompt === 'string' ? context.input.prompt : JSON.stringify(context.input.prompt);
+            const requestMessages = [
+                { role: 'system' as const, content: context.config.systemPrompt },
+                { role: 'user' as const, content: userPrompt },
+            ];
+
+            const response = await llm(context.config.model, requestMessages, []);
+            const finalResponse = response.content || 'No response generated';
+
+            // 将完整的对话历史存储到 state 中
+            allMessages = [
+                ...requestMessages,
+                { role: 'assistant' as const, content: finalResponse }
+            ];
+            context.updateState({ ...context.state, fullMessages: allMessages });
+
+            return { output: finalResponse };
         }
 
         // Create tools from selected flows
-        const tools: ExecutableTool[] = context.config.toolFlowIds.map(flowId => {
+        const tools: ExecutableTool<Record<string, unknown>>[] = context.config.toolFlowIds.map(flowId => {
             const flowNodeType = getFlowNodeTypes().find(flow => flow.id === flowId);
 
             if (!flowNodeType) {
@@ -159,6 +187,7 @@ Think step by step and use tools when necessary to provide accurate answers.`;
         ];
 
         let finalResponse = '';
+        allMessages = [...messages]; // 初始化 allMessages 包含初始消息
 
         // Collect all messages from the react execution
         const reactEvents = react(context.config.model, messages, tools, context.config.maxIterations);
@@ -166,9 +195,14 @@ Think step by step and use tools when necessary to provide accurate answers.`;
         for await (const event of reactEvents) {
             if (event.type === 'llm_end') {
                 finalResponse = event.message.content || '';
+                allMessages.push(event.message);
+            } else if (event.type === 'tool_end') {
+                allMessages.push(event.message);
             }
-            // We could also collect tool calls and their results here if needed
         }
+
+        // 将完整的对话历史存储到 state 中
+        context.updateState({ ...context.state, fullMessages: allMessages });
 
         return { output: finalResponse || 'No response generated' };
     },
