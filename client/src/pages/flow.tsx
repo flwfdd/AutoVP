@@ -397,7 +397,8 @@ function Flow() {
     setDeletingFlowType(null);
   }, [deletingFlowType, setFlowNodeTypes, setIsDeleteFlowDialogOpen, setDeletingFlowType]);
 
-  const setNodeReviewed = useCallback((nodeId: string, reviewed: boolean) => {
+  const setNodeReviewed = useCallback((flowId: string, nodeId: string, reviewed: boolean) => {
+    if (flowId !== editingFlowId) return;
     setTimeout(() => {
       updateNodeData(nodeId, (node) => ({
         state: {
@@ -406,7 +407,7 @@ function Flow() {
         },
       }));
     }, 100);
-  }, [updateNodeData]);
+  }, [editingFlowId, updateNodeData]);
 
   const highlightNode = useCallback((nodeId: string) => {
     // 关闭Log Dialog

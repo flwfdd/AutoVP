@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import configGlobal from '@/lib/config';
-import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema, INodeState, INodeConfig, INodeOutput, INodeInput, dumpDSL } from '@/lib/flow/flow';
+import { DSLSchema, IDSL, IEdge, IFlowNodeType, INodeType, INodeWithPosition, loadDSL, NodeDSLSchema, EdgeDSLSchema, INodeState, INodeConfig, INodeOutput, INodeInput, dumpDSL, FlowDSLSchema } from '@/lib/flow/flow';
 import { reactStream, createExecutableTool, Message, ExecutableTool } from '@/lib/llm';
 import { Editor } from '@monaco-editor/react';
 import { ChevronDown, ChevronRight, Loader, PanelLeftClose, PanelRightClose, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z } from 'zod';
@@ -73,7 +73,7 @@ interface AICopilotDialogProps {
   setDSL: (dsl: IDSL) => void;
   nodeTypeMap: Record<string, INodeType<INodeConfig, INodeState, INodeInput, INodeOutput>>;
   newFlowNodeType: (id: string, name: string, description: string, nodes: INodeWithPosition[], edges: IEdge[]) => IFlowNodeType;
-  setNodeReviewed: (nodeId: string, reviewed: boolean) => void;
+  setNodeReviewed: (flowId: string, nodeId: string, reviewed: boolean) => void;
 }
 
 interface ChatMessage {
@@ -107,6 +107,8 @@ function AICopilotDialog({
   const [collapsedToolResults, setCollapsedToolResults] = useState<Set<number>>(new Set());
   const [dslSnapshot, setDslSnapshot] = useState<string>('');
 
+  const dslRef = useRef<IDSL>(DSL); // 最新的有效 DSL
+
   useEffect(() => {
     if (isOpen) {
       setDslSnapshot(JSON.stringify(DSL, null, 2));
@@ -116,6 +118,7 @@ function AICopilotDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]); // DSL更新时不能重置状态
 
+  // 当外部 DSL prop 变化时，同步更新 ref 和编辑器状态
   useEffect(() => {
     if (isOpen) {
       setDslString(JSON.stringify(DSL, null, 2));
@@ -126,7 +129,7 @@ function AICopilotDialog({
   useEffect(() => {
     try {
       const parsedDSL = JSON.parse(dslString);
-      loadDSL(parsedDSL, nodeTypeMap, newFlowNodeType);
+      dslRef.current = dumpDSL(loadDSL(parsedDSL, nodeTypeMap, newFlowNodeType));
       setDslError('');
     } catch (error: unknown) {
       setDslError(error instanceof Error ? error.message : String(error));
@@ -157,24 +160,23 @@ function AICopilotDialog({
 
     // Helper function to get current DSL
     const getCurrentDSL = () => {
-      try {
-        return JSON.parse(dslString);
-      } catch {
-        throw new Error('Current DSL is invalid JSON');
-      }
+      console.log('getCurrentDSL from ref:', dslRef.current);
+      // 深度克隆以避免工具函数直接修改 ref 中的对象，导致意外的副作用
+      return dslRef.current;
     };
 
     // Helper function to update DSL and editor
     const updateDSLAndEditor = (newDSL: unknown, successMessage: string) => {
+      console.log('updateDSLAndEditor', newDSL);
       try {
-        // Update the DSL string in the editor
-        const newDslString = JSON.stringify(newDSL, null, 2);
-        setDslString(newDslString);
-
-        // Validate the DSL
+        // 验证 DSL
         const validatedDSL = loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
 
-        // Automatically apply the changes if DSL is valid
+        // 同步更新 ref，供下一次工具调用使用
+        dslRef.current = newDSL as IDSL;
+
+        // 异步更新 state，用于 UI 渲染和父组件通信
+        setDslString(JSON.stringify(newDSL, null, 2));
         setDSL(dumpDSL(validatedDSL));
 
         toast.success(successMessage);
@@ -208,45 +210,59 @@ function AICopilotDialog({
       edgeId: z.string().describe('ID of the edge to remove')
     });
 
+    const EditFlowParamsSchema = z.object({
+      flowId: z.string().describe('ID of the flow to edit.'),
+      flow: FlowDSLSchema.describe('Flow to create or update')
+    });
+
+    const RemoveFlowParamsSchema = z.object({
+      flowId: z.string().describe('ID of the flow to remove')
+    });
+
     const UpdateDSLParamsSchema = z.object({
       dsl: DSLSchema.describe('Complete DSL to replace the current one')
     });
 
-    // Create the edit_node tool
     const editNodeTool = createExecutableTool(
       'edit_node',
       'Create or edit a node in the flow. If node ID exists, it will be replaced; if not, a new node will be created.',
       EditNodeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
+        console.log('edit_node currentDSL', currentDSL);
         const flowId = args.flowId;
 
-        // Find the target flow
-        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        // Find the target flow in the flows array
+        const targetFlow = currentDSL.flows?.find((f: { id: string }) => f.id === flowId);
         if (!targetFlow) {
           throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find existing node index
-        const existingIndex = targetFlow.nodes.findIndex((n: INodeWithPosition) => n.id === args.node.id);
+        const existingIndex = targetFlow.nodes.findIndex((n: { id: string }) => n.id === args.node.id);
 
         if (existingIndex >= 0) {
           // Replace existing node
-          targetFlow.nodes[existingIndex] = args.node;
+          targetFlow.nodes[existingIndex] = {
+            ...args.node,
+            position: args.node.position || { x: 0, y: 0 }
+          };
           const result = updateDSLAndEditor(currentDSL, `Node "${args.node.id}" updated successfully`);
-          setNodeReviewed(args.node.id, false);
+          setNodeReviewed(flowId, args.node.id, false);
           return result;
         } else {
           // Add new node
-          targetFlow.nodes.push(args.node);
+          targetFlow.nodes.push({
+            ...args.node,
+            position: args.node.position || { x: 0, y: 0 }
+          });
           const result = updateDSLAndEditor(currentDSL, `Node "${args.node.id}" created successfully`);
-          setNodeReviewed(args.node.id, false);
+          setNodeReviewed(flowId, args.node.id, false);
           return result;
         }
       }
     );
 
-    // Create the remove_node tool
     const removeNodeTool = createExecutableTool(
       'remove_node',
       'Remove a node from the flow and all its connected edges',
@@ -255,14 +271,14 @@ function AICopilotDialog({
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId;
 
-        // Find the target flow
-        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        // Find the target flow in the flows array
+        const targetFlow = currentDSL.flows?.find((f: { id: string }) => f.id === flowId);
         if (!targetFlow) {
           throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find and remove the node
-        const nodeIndex = targetFlow.nodes.findIndex((n: INodeWithPosition) => n.id === args.nodeId);
+        const nodeIndex = targetFlow.nodes.findIndex((n: { id: string }) => n.id === args.nodeId);
         if (nodeIndex === -1) {
           throw new Error(`Node with id "${args.nodeId}" not found`);
         }
@@ -270,15 +286,14 @@ function AICopilotDialog({
         targetFlow.nodes.splice(nodeIndex, 1);
 
         // Remove all edges connected to this node
-        targetFlow.edges = targetFlow.edges.filter((e: { source: { node: string }, target: { node: string } }) =>
-          e.source.node !== args.nodeId && e.target.node !== args.nodeId
+        targetFlow.edges = targetFlow.edges.filter((e: { source: { nodeId: string }, target: { nodeId: string } }) =>
+          e.source.nodeId !== args.nodeId && e.target.nodeId !== args.nodeId
         );
 
         return updateDSLAndEditor(currentDSL, `Node "${args.nodeId}" and its connected edges removed successfully`);
       }
     );
 
-    // Create the edit_edge tool
     const editEdgeTool = createExecutableTool(
       'edit_edge',
       'Create or edit an edge in the flow. If edge ID exists, it will be replaced; if not, a new edge will be created.',
@@ -287,14 +302,14 @@ function AICopilotDialog({
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId;
 
-        // Find the target flow
-        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        // Find the target flow in the flows array
+        const targetFlow = currentDSL.flows?.find((f: { id: string }) => f.id === flowId);
         if (!targetFlow) {
           throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find existing edge index
-        const existingIndex = targetFlow.edges.findIndex((e: IEdge) => e.id === args.edge.id);
+        const existingIndex = targetFlow.edges.findIndex((e: { id: string }) => e.id === args.edge.id);
 
         if (existingIndex >= 0) {
           // Replace existing edge
@@ -317,14 +332,14 @@ function AICopilotDialog({
         const currentDSL = getCurrentDSL();
         const flowId = args.flowId;
 
-        // Find the target flow
-        const targetFlow = currentDSL.flowNodeTypes?.find((f: IFlowNodeType) => f.id === flowId);
+        // Find the target flow in the flows array
+        const targetFlow = currentDSL.flows?.find((f: { id: string }) => f.id === flowId);
         if (!targetFlow) {
           throw new Error(`Flow with id "${flowId}" not found`);
         }
 
         // Find and remove the edge
-        const edgeIndex = targetFlow.edges.findIndex((e: IEdge) => e.id === args.edgeId);
+        const edgeIndex = targetFlow.edges.findIndex((e: { id: string }) => e.id === args.edgeId);
         if (edgeIndex === -1) {
           throw new Error(`Edge with id "${args.edgeId}" not found`);
         }
@@ -335,21 +350,77 @@ function AICopilotDialog({
       }
     );
 
-    // Create the update_dsl tool (keep the original for full DSL updates)
+    const editFlowTool = createExecutableTool(
+      'edit_flow',
+      'Create or edit a flow in the DSL',
+      EditFlowParamsSchema,
+      async (args) => {
+        const currentDSL = getCurrentDSL();
+        console.log('edit_flow currentDSL', currentDSL);
+        const flowId = args.flowId;
+
+        // Find the target flow
+        const targetFlowIndex = currentDSL.flows?.findIndex((f: { id: string }) => f.id === flowId);
+        if (targetFlowIndex !== undefined && targetFlowIndex >= 0) {
+          // Replace existing flow
+          currentDSL.flows[targetFlowIndex] = {
+            ...args.flow,
+            nodes: args.flow.nodes.map(node => ({
+              ...node,
+              position: node.position || { x: 0, y: 0 }
+            }))
+          };
+          const result = updateDSLAndEditor(currentDSL, `Flow "${args.flow.id}" updated successfully`);
+          args.flow.nodes.forEach((node) => setNodeReviewed(flowId, node.id, false));
+          return result;
+        } else {
+          // Add new flow
+          currentDSL.flows.push({
+            ...args.flow,
+            nodes: args.flow.nodes.map(node => ({
+              ...node,
+              position: node.position || { x: 0, y: 0 }
+            }))
+          });
+          const result = updateDSLAndEditor(currentDSL, `Flow "${args.flow.id}" created successfully`);
+          args.flow.nodes.forEach((node) => setNodeReviewed(flowId, node.id, false));
+          return result;
+        }
+      }
+    );
+
+    const removeFlowTool = createExecutableTool(
+      'remove_flow',
+      'Remove a flow from the DSL',
+      RemoveFlowParamsSchema,
+      async (args) => {
+        const currentDSL = getCurrentDSL();
+        const flowId = args.flowId;
+
+        // Find the target flow
+        const targetFlowIndex = currentDSL.flows?.findIndex((f: { id: string }) => f.id === flowId);
+        if (targetFlowIndex !== undefined && targetFlowIndex >= 0) {
+          currentDSL.flows.splice(targetFlowIndex, 1);
+          return updateDSLAndEditor(currentDSL, `Flow "${args.flowId}" removed successfully`);
+        }
+        throw new Error(`Flow with id "${args.flowId}" not found`);
+      }
+    );
+
     const updateDSLTool = createExecutableTool(
       'update_dsl',
       'Update the current flow DSL with a new or modified DSL',
       UpdateDSLParamsSchema,
       async (args) => {
         const result = updateDSLAndEditor(args.dsl, 'DSL updated successfully');
-        args.dsl.flows?.forEach((flow) => flow.nodes.forEach((node) => setNodeReviewed(node.id, false)));
+        args.dsl.flows?.forEach((flow) => flow.nodes.forEach((node) => setNodeReviewed(flow.id, node.id, false)));
         return result;
       }
     );
 
     const systemPrompt = `You are an expert AI assistant specializing in collaboratively designing and building visual application flows.
 This visual flow system contains different types of nodes and edges between them. The user will provide a complete DSL (Domain Specific Language) representing the current flow.
-You need to use user's language (including the comments and mermaid diagrams).
+You need to use user's language (including the comments and mermaid diagrams, but parameters and variables should be in English).
 
 # Your Task
 Based on the user's question and the current flow DSL, you can:
@@ -357,52 +428,59 @@ Based on the user's question and the current flow DSL, you can:
 2. Modify or extend the flow according to user requirements
 3. Generate an entirely new flow
 
-When you need to update the DSL, you can use either:
-1. **update_dsl** - For complete DSL replacement
-2. **edit_node** - To create or modify individual nodes
-3. **remove_node** - To delete nodes and their connected edges
-4. **edit_edge** - To create or modify individual edges
-5. **remove_edge** - To delete specific edges
-
-For small changes, prefer using the specific tools (edit_node, edit_edge, etc.) as they are more precise and efficient.
-
 # Important Guidelines
 
 ## 1. Ambiguity Handling
-- If the user's request is not specific enough or has ambiguity, **you must first ask for clarification** instead of making assumptions about the user's intent
-- For example: If the user says "create an AI flow", ask specifically what they want to do (text generation, image processing, data analysis, etc.)
-- If the user says "modify the flow" without specifying what to modify, ask for detailed requirements
+If the user's request is not specific enough or has ambiguity, you must first ask for clarification instead of making assumptions about the user's intent
 
 ## 2. Steps for Creating New Flows
-When users request to create a new flow, you **must follow these steps**:
+When users request to create a new flow, you must follow these steps:
 
-a) **First, clarify the plan**: Explain in detail the flow's objectives, main steps, and logic
-b) **Then show a Mermaid diagram sketch**: Use flowchart syntax to show the flow structure
-c) **Finally use appropriate tools**: Use update_dsl for complete flows, or edit_node/edit_edge for individual components
-
-Mermaid example format:
-\`\`\`mermaid
-flowchart TD
-    A[Start] --> B[Text Input]
-    B --> C[LLM Processing]
-    C --> D[Display Result]
-    D --> E[End]
-\`\`\`
+a) First, clarify the plan: Explain in detail the flow's objectives, main steps, and logic
+b) (Optional) Then show a Mermaid diagram sketch: Use flowchart syntax to show the flow structure. Mermaid example format:
+c) Finally use appropriate tools: Use update_dsl for complete flows, or other tools for individual components
 
 ## 3. Workflow
 1. **Understand and Analyze**: Carefully understand the user's request
 2. **Clarify Ambiguities**: If anything is unclear, ask for clarification first
-3. **Explain the Plan**: Detail what will be done (for new flow creation)
-4. **Mermaid Sketch**: Show flow structure with diagrams (for new flow creation)
+3. **Explain the Plan**: Detail what will be done
+4. **Mermaid Sketch**: Show flow structure with diagrams
 5. **Check Current DSL**: Check current DSL for errors and fix them if possible
 6. **Use appropriate tools**: Apply changes using the most suitable tool for the operation
 
-When the user requests modifications or generation of a new flow DSL, choose the appropriate tool:
-- **update_dsl**: For complete DSL replacement or major restructuring
-- **edit_node**: For adding, updating, or replacing individual nodes
-- **remove_node**: For deleting nodes and their connections
-- **edit_edge**: For adding or updating connections between nodes
-- **remove_edge**: For deleting specific connections
+
+## Core Principles of Interaction
+
+1.  **Deconstruct and Iterate, Don't Generate All at Once.**
+  - When a user asks to create a new flow, do not provide a full plan, diagram, and code in one go.
+  - Instead, propose a detailed plan and explanation first.
+  - User may update the DSL meanwhile, you should edit based on the latest DSL.
+
+2.  **Clarify Ambiguity, Never Assume.**
+  - If any part of the user's request is unclear, you must ask clarifying questions before proceeding.
+  - Your priority is to understand the user's true intent.
+
+3.  **Visualize Continuously with Mermaid.**
+  - Use Mermaid diagrams as a tool throughout the conversation to visualize your current understanding of the flow.
+  - After making a change or adding a node, you can show the updated, simple diagram to ensure you and the user are aligned. This is a communication tool, not just a final step.
+  - Format example:
+    \`\`\`mermaid
+    flowchart TD
+        A[Start] --> B[Agent Processing]
+        B --> C[Display Result]
+        B --> D[End]
+    \`\`\`
+
+4.  **Confirm Before Generating Final Code.**
+  - Only after the design has been refined and the user is happy should you apply changes using the appropriate tools.
+
+5.  **Use tools to update the DSL.**
+  - You can use tools to update the DSL step by step until the task is done.
+  - For small changes, prefer using the specific tools (edit_node, edit_edge, etc.) as they are more precise and efficient.
+  - Do not output DSL in the response, just use tools to update the DSL.
+
+
+## DSL Requirements
 
 All changes must ensure the DSL:
 - **Strictly follow the DSL structure**
@@ -410,52 +488,8 @@ All changes must ensure the DSL:
 - **Every node ID is unique**
 - **All connections follow the rules**
 - **Handle IDs match the node specifications exactly**
-- **Only return one DSL in a json block in your response**
 
-## Your Task
-Your primary goal is to work with the user **iteratively** through conversation.
-Instead of generating a complete solution at once, you will build upon the user's ideas step-by-step, refining the design until they are satisfied.
-Based on the user's question and the current flow DSL, you can:
-1. Analyze and explain the flow's functionality and structure
-2. Modify or extend the flow according to user requirements
-3. Generate an entirely new flow
-
-
-## Core Principles of Interaction
-
-1.  **Deconstruct and Iterate, Don't Generate All at Once.**
-    * When a user asks to create a new flow, **do not** provide a full plan, diagram, and code in one go.
-    * Instead, **propose a detailed plan and explanation first**.
-
-2.  **Clarify Ambiguity, Never Assume.**
-    * If any part of the user's request is unclear, you **must** ask clarifying questions before proceeding.
-    * **Your priority is to understand the user's true intent.** 
-
-3.  **Visualize Continuously with Mermaid.**
-    * Use Mermaid diagrams as a tool throughout the conversation to **visualize your current understanding** of the flow.
-    * After making a change or adding a node, you can show the updated, simple diagram to ensure you and the user are aligned. This is a communication tool, not just a final step.
-    * Format example:
-\`\`\`mermaid
-flowchart TD
-    A[Start] --> B[LLM Processing]
-    B --> C[Display Result]
-    C --> D[End]
-\`\`\`
-
-4.  **Confirm Before Generating Final Code.**
-    * Only after the design has been refined and the user is happy should you apply changes using the appropriate tools.
-
-
-## Final DSL Output Requirements
-
-When the user gives final confirmation, you **must** generate the DSL according to these rules:
-- **Strictly follow the DSL structure**
-- **The DSL is complete and valid**
-- **Every node ID is unique**
-- **All connections follow the rules**
-- **Handle IDs match the node specifications exactly**
-
-# DSL Structure
+# Flow DSL Structure
 The DSL is a JSON object with the following schema:
 \`\`\`
 ${JSON.stringify(zodToJsonSchema(DSLSchema, 'dsl'), null, 2)}
@@ -465,36 +499,32 @@ ${JSON.stringify(zodToJsonSchema(DSLSchema, 'dsl'), null, 2)}
 - A node has a unique id, a type, a config, and a position
 - The type can be one of the node type id or a flow id
 - A node can connect to zero or more input/output edges, every handle has a unique key, which is defined in the node type input/output schema or config for some node types
-- Every output handle of a node (source of an edge) can connect to multiple input handles (targets of edges), but every input handle (target of an edge) can only connect to one output handle (source of an edge)
+- Every output handle of a node (source of an edge) can connect to multiple input handles (targets of edges), but every input handle (except for the end node) can only connect to one output handle
+- For some node types, the input/output handles are dynamic, you have to pay attention to the node rules and config
 
 ## Edge Structure
 - An edge has a unique id, a source and a target
 - The source and target are the node id and the key of the handle
 - Handle IDs must match exactly with node specifications
+- **IMPORTANT**: You must make sure the node id is valid, and the key of the handle is valid
 
 ## Flow Structure
 - A flow has a unique id, a name, a description, and a list of nodes and edges
 - Every flow has and only has one start node (id: start, type: start) and one end node (id: end, type: end)
+- Every flow can be a API endpoint or a tool of Agent, the params of start node is the input of the flow, the output of the end node is the output of the flow, so the end node should be connected to at least one edge
 - The type of nodes in a flow can be another flow id, but there can not be a circular reference
 
 ## Connection Rules
 
 ### ✅ CORRECT Connections Examples:
-- text → llm: text.text → llm.prompt
-- llm → display: llm.output → display.value
-- start → python: start.value → python.param_id
-- python/javascript → llm: python.output → llm.prompt (ONLY if python/javascript outputs string)
+- text → agent → end: text.text → agent.prompt → agent.output → end.value
+- text → display & text → end: text.text → display.value → end.value
+- start → python: start.value → python.param_id (start node should have a \`value\` param)
+- javascript → agent: javascript.output → agent.prompt
 
 ### ❌ INCORRECT Connections Examples (*MUST AVOID*):
-- python/javascript → llm: When python/javascript outputs object/array but connects to llm.prompt (string only)
-- Any non-string → image.src
-- Any non-string → llm.prompt
-
-### 🔧 Type Conversion Solutions:
-If you need to connect incompatible types, insert conversion nodes:
-- Use JavaScript node to convert objects to strings
-- Use JavaScript node to extract specific fields from objects
-- Use JavaScript node to format data appropriately
+- display → end: display node does not have output handle
+- text → agent, python → agent: MUST NOT have multiple output handles connected to the same input handle
 
 ## Node Types
 ${Object.values(nodeTypeMap).map(nodeType => `
@@ -544,11 +574,13 @@ ${dslError}
 
       // Use reactStream function with tools to get streaming events
       const eventStream = reactStream(configGlobal.codeEditorModel, messages, [
-        updateDSLTool,
         editNodeTool,
         removeNodeTool,
         editEdgeTool,
-        removeEdgeTool
+        removeEdgeTool,
+        editFlowTool,
+        removeFlowTool,
+        updateDSLTool,
       ] as unknown as ExecutableTool<Record<string, unknown>>[], 10);
 
       for await (const event of eventStream) {
@@ -788,7 +820,7 @@ ${dslError}
                 You can ask the AI to explain the current flow, modify an existing flow, or create a new flow. For example:
                 <ul className="list-disc pl-8 mt-2 space-y-1">
                   <li>Analyze the functionality and structure of this flow</li>
-                  <li>Add a new LLM node to the current flow</li>
+                  <li>Add a new Agent node to the current flow</li>
                   <li>Create a web crawler flow</li>
                   <li>Create an image processing flow</li>
                 </ul>
