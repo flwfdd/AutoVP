@@ -94,7 +94,7 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
           title="Click to enlarge"
         />
         {!isLoaded && !hasError && (
-          <div className="flex items-center justify-center h-32">
+          <div className="flex items-center justify-center h-24">
             <Loader className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}

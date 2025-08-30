@@ -10,14 +10,14 @@ import BaseNode from './base/BaseNode';
 import MarkdownRenderer from "./editor/MarkdownRenderer";
 
 const DisplayNodeInputSchema = BaseNodeInputSchema.extend({
-  value: z.any().describe('value to display, if the value is a string, it can be viewed as markdown'),
+  value: z.any().describe('Value to display, if the value is a string, it can be viewed as markdown'),
 });
 type IDisplayNodeInput = z.infer<typeof DisplayNodeInputSchema>;
 
-const DisplayNodeOutputSchema = BaseNodeOutputSchema.extend({});
+const DisplayNodeOutputSchema = BaseNodeOutputSchema.describe('No output handle');
 type IDisplayNodeOutput = z.infer<typeof DisplayNodeOutputSchema>;
 
-const DisplayNodeConfigSchema = BaseNodeConfigSchema.extend({});
+const DisplayNodeConfigSchema = BaseNodeConfigSchema;
 type IDisplayNodeConfig = z.infer<typeof DisplayNodeConfigSchema>;
 
 type IDisplayNodeState = IBaseNodeState;
@@ -28,7 +28,7 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
   outputSchema: DisplayNodeOutputSchema,
   id: 'display',
   name: 'Display',
-  description: 'Display node displays the output by JSON stringify.',
+  description: 'Display node displays the value by JSON stringify.',
   defaultConfig: {
     name: 'New Display',
     description: '',

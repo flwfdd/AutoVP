@@ -44,19 +44,19 @@ const BranchLabel = React.memo(({
 });
 
 const BranchNodeInputSchema = BaseNodeInputSchema.extend({
-  input: z.any().describe('input to the branch node'),
+  input: z.any().describe('Input to the branch node'),
 });
 type IBranchNodeInput = z.infer<typeof BranchNodeInputSchema>;
 
-const BranchNodeOutputSchema = BaseNodeOutputSchema.catchall(z.any());
+const BranchNodeOutputSchema = BaseNodeOutputSchema.catchall(z.any()).describe('Outputs of the branch node, every handle key is a branch id');
 type IBranchNodeOutput = z.infer<typeof BranchNodeOutputSchema>;
 
 const codePrompt = `
-Branch nodes can distribute input to different output ports based on conditions. You can use JavaScript code to control the flow.
+Branch nodes can distribute input to different output ports based on conditions. You can use JavaScript code to control.
 
 The code will be executed within an async function. You can directly use the following variables:
-- input: The input data passed to the branch node
-- All branch names as variables (e.g., if a branch is named "branchA", you can use the branchA variable directly)
+- \`input\`: The input data passed to the branch node
+- All branch names as variables (e.g., if a branch is named \`branchA\`, you can use the \`branchA\` variable directly)
 
 The return value determines the output flow:
 1. Return a single branch name: e.g., \`return branchA;\` - sends the input data to that branch
@@ -77,15 +77,18 @@ return [branchA, branchB];
 
 // Send different content to different branches
 return {
-  branchA: input.value,
-  branchB: input.value % 2 === 0 ? 'even' : 'odd'
+  branchA: input.key1,
+  branchB: input.key2 % 2 === 0 ? 'even' : 'odd'
 };
 \`\`\`
 `;
 
 const BranchNodeConfigSchema = BaseNodeConfigSchema.extend({
   code: z.string().describe(codePrompt),
-  branches: z.array(z.object({ id: z.string(), name: z.string() })),
+  branches: z.array(z.object({
+    id: z.string().describe('Corresponding to a handle key'),
+    name: z.string().describe('Name of the branch to display and used as a variable in the code')
+  })),
 });
 type IBranchNodeConfig = z.infer<typeof BranchNodeConfigSchema>;
 
@@ -97,7 +100,11 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
   outputSchema: BranchNodeOutputSchema,
   id: 'branch',
   name: 'Branch',
-  description: 'Branch node outputs based on the condition.\nCondition code example for branches A & B:\n1. `return a`: send input to A\n2. `return [a, b]`: send input to A & B\n3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',
+  description: 'Branch node outputs based on the condition.\n' +
+    'Condition code example for branches A & B:\n' +
+    '1. `return a`: send input to A\n' +
+    '2. `return [a, b]`: send input to A & B\n' +
+    '3. `return {a: 1, b: input.x}`: send 1 to A & input.x to B',
   defaultConfig: { name: 'New Branch', description: '', code: '', branches: [] },
   defaultState: BaseNodeDefaultState,
   logFormatter: ((config: IBranchNodeConfig, _state: INodeState, log: INodeRunLog<IBranchNodeInput, IBranchNodeOutput>) => {

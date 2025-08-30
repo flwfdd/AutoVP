@@ -18,20 +18,20 @@ import { MultiSelect } from '@/components/multi-select';
 import { getFlowNodeTypes, useFlowNodeTypes } from "@/lib/flow/use-flow-node-types";
 
 const AgentNodeInputSchema = BaseNodeInputSchema.extend({
-    prompt: z.unknown().describe('prompt to send to the Agent, if the prompt is not a string, it will be converted to a string by JSON.stringify'),
+    prompt: z.any().describe('User prompt to send to the Agent, if the prompt is not a string, it will be converted to a string by JSON.stringify'),
 });
 type IAgentNodeInput = z.infer<typeof AgentNodeInputSchema>;
 
 const AgentNodeOutputSchema = BaseNodeOutputSchema.extend({
-    output: z.string().describe('final output of the Agent after tool usage'),
+    output: z.string().describe('Final output of the Agent after tool calls, is the last assistant message content'),
 });
 type IAgentNodeOutput = z.infer<typeof AgentNodeOutputSchema>;
 
 const AgentNodeConfigSchema = BaseNodeConfigSchema.extend({
-    systemPrompt: z.string().describe('system prompt to send to the Agent'),
-    model: z.string().describe('model to use, available models: ' + configGlobal.llm.models.join(', ')),
-    toolFlowIds: z.array(z.string()).describe('array of flow IDs to use as tools'),
-    maxIterations: z.number().describe('maximum number of iterations for ReAct'),
+    systemPrompt: z.string().describe('System prompt to send to the Agent'),
+    model: z.string().describe('Model to use, available models: ' + configGlobal.llm.models.join(', ')),
+    toolFlowIds: z.array(z.string()).describe('Array of flow IDs to use as tools'),
+    maxIterations: z.number().describe('Maximum number of iterations for ReAct'),
 });
 type IAgentNodeConfig = z.infer<typeof AgentNodeConfigSchema>;
 
@@ -45,7 +45,9 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
     outputSchema: AgentNodeOutputSchema,
     id: 'agent',
     name: 'Agent',
-    description: 'Agent node runs LLM with ReAct pattern and can use subflows as tools.',
+    description: 'Agent node runs LLM with ReAct pattern and can use subflows as tools.\n' +
+        'The input of the agent node is the user prompt to send to the Agent.\n' +
+        'The output of the agent node is the last assistant message from the Agent.',
     defaultConfig: {
         name: 'New Agent',
         description: '',
@@ -109,10 +111,10 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
 
             // Create dynamic schema for this flow's parameters
             const flowParamsSchema = z.object(
-                inputParams.reduce((acc: Record<string, z.ZodString>, param: { name: string }) => {
-                    acc[param.name] = z.string().describe(`Input parameter: ${param.name}`);
+                inputParams.reduce((acc: Record<string, z.ZodAny>, param: { name: string }) => {
+                    acc[param.name] = z.any().describe(`Input parameter: ${param.name}`);
                     return acc;
-                }, {} as Record<string, z.ZodString>)
+                }, {} as Record<string, z.ZodAny>)
             );
 
             return createExecutableTool(

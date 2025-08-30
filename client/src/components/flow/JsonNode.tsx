@@ -5,16 +5,16 @@ import React, { useCallback, useState } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
 
-const JsonNodeInputSchema = BaseNodeInputSchema.extend({});
+const JsonNodeInputSchema = BaseNodeInputSchema.describe('No input handle');
 type IJsonNodeInput = z.infer<typeof JsonNodeInputSchema>;
 
 const JsonNodeOutputSchema = BaseNodeOutputSchema.extend({
-  json: z.any().describe('json value to output'),
+  json: z.any().describe('JSON value to output'),
 });
 type IJsonNodeOutput = z.infer<typeof JsonNodeOutputSchema>;
 
 const JsonNodeConfigSchema = BaseNodeConfigSchema.extend({
-  json: z.any().describe('json value to output'),
+  json: z.any().describe('JSON value to output'),
 });
 type IJsonNodeConfig = z.infer<typeof JsonNodeConfigSchema>;
 
@@ -26,7 +26,8 @@ export const JsonNodeType: INodeType<IJsonNodeConfig, IJsonNodeState, IJsonNodeI
   configSchema: JsonNodeConfigSchema,
   id: 'json',
   name: 'JSON',
-  description: 'JSON node provides a json value source.',
+  description: 'JSON node provides a json value source.\n' +
+    'It has no input.',
   defaultConfig: { name: 'New JSON', description: '', json: {} },
   defaultState: BaseNodeDefaultState,
   logFormatter: (_config: IJsonNodeConfig, _state: IJsonNodeState, log: INodeRunLog<IJsonNodeInput, IJsonNodeOutput>) => ({

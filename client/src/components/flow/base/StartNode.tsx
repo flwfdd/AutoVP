@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeConfigSchema, BaseNodeDefaultState, BaseNodeInputSchema, BaseNodeOutputSchema, IBaseNodeState, INodeContext, INodeProps, INodeType, useNodeUIContext } from '@/lib/flow/flow';
 import { generateId } from '@/lib/utils';
 import { Position } from '@xyflow/react';
 import { XCircle, Plus, FlaskConical } from "lucide-react";
@@ -19,20 +19,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import BaseNode from './BaseNode';
 
-const StartNodeInputSchema = z.record(z.any());
+const StartNodeInputSchema = BaseNodeInputSchema.catchall(z.any()).describe('No input handle');
 type IStartNodeInput = z.infer<typeof StartNodeInputSchema>;
 
-const StartNodeOutputSchema = BaseNodeOutputSchema;
+const StartNodeOutputSchema = BaseNodeOutputSchema.catchall(z.any()).describe('Input of the flow or test value, every param id is a handle key. Do not connect any output handle that is not in the params config');
 type IStartNodeOutput = z.infer<typeof StartNodeOutputSchema>;
 
 const StartNodeConfigSchema = BaseNodeConfigSchema.extend({
   params: z.array(
     z.object({
-      id: z.string().describe('id of the param, corresponding to an output key'),
-      name: z.string().describe('name of the param, used as output key'),
-      testValue: z.any().describe('test value for this parameter when running independently'),
+      id: z.string().describe('Corresponding to a handle key'),
+      name: z.string().describe('Name of the param to display'),
+      testValue: z.any().describe('Test value for this parameter when running independently'),
     })
-  ).describe('parameters to output from the start node'),
+  ).describe('Parameters as input of the flow and output of the start node'),
 });
 type IStartNodeConfig = z.infer<typeof StartNodeConfigSchema>;
 
@@ -44,7 +44,9 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
   configSchema: StartNodeConfigSchema,
   id: 'start',
   name: 'Start',
-  description: 'Start node is the starting node of the flow with customizable output parameters.',
+  description: 'Start node is the starting node of the flow with customizable parameters.\n' +
+    'If the flow runs as a sub flow or a tool of agent, the input of the flow will be mapped to the parameters.\n' +
+    'There is no parameter (and no output) by default.',
   defaultConfig: { name: 'Start', description: '', params: [] },
   defaultState: BaseNodeDefaultState,
   async run(context: INodeContext<IStartNodeConfig, IStartNodeState, IStartNodeInput>): Promise<IStartNodeOutput> {

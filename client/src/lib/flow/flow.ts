@@ -488,8 +488,8 @@ export type IFlowDSL = z.infer<typeof FlowDSLSchema>;
 
 // 导出 DSL Schema
 export const DSLSchema = z.object({
-  mainFlowId: z.string(),
-  flows: FlowDSLSchema.array(),
+  mainFlowId: z.string().describe('ID of the main flow to run and show in the UI.'),
+  flows: FlowDSLSchema.array().describe('All flows in the project.'),
 });
 export type IDSL = z.infer<typeof DSLSchema>;
 
@@ -699,17 +699,15 @@ function loadFlow(
 }
 
 // 子流节点类型
-export const FlowNodeInputSchema = NodeInputSchema.extend({
-  input: z.any(),
-});
+export const FlowNodeInputSchema = BaseNodeInputSchema.catchall(z.any()).describe('Will be passed to the start node of the flow, every handle key is a param id');
 export type IFlowNodeInput = z.infer<typeof FlowNodeInputSchema>;
 
-export const FlowNodeOutputSchema = NodeOutputSchema.extend({
-  output: z.any(),
+export const FlowNodeOutputSchema = BaseNodeOutputSchema.extend({
+  output: z.any().describe('Value of the end node of the flow'),
 });
 export type IFlowNodeOutput = z.infer<typeof FlowNodeOutputSchema>;
 
-export const FlowNodeConfigSchema = NodeConfigSchema.extend({});
+export const FlowNodeConfigSchema = BaseNodeConfigSchema;
 export type IFlowNodeConfig = z.infer<typeof FlowNodeConfigSchema>;
 
 export interface IFlowNodeState extends INodeState {

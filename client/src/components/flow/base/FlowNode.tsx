@@ -46,16 +46,12 @@ export function newFlowNodeType(id: string, name: string, description: string, n
       const startNode = context.state.type.nodes.find(node => node.type.id === 'start');
 
       // 准备传递给子流程的输入
-      let flowInput: Record<string, unknown>;
+      const flowInput: Record<string, unknown> = {};
       if (startNode && startNode.config.params && startNode.config.params.length > 0) {
         // 如果 start 节点有自定义参数，将输入映射到对应的参数
-        flowInput = {};
         startNode.config.params.forEach((param: { id: string, name: string }) => {
           flowInput[param.id] = context.input[param.name] ?? null;
         });
-      } else {
-        // 如果没有自定义参数，使用传统的输入方式
-        flowInput = context.input.input ?? context.input;
       }
 
       const output = await runFlow(flowInput, context.state.runNodes, context.state.type.edges, () => { }, () => { }, updateRunState, flowStack);

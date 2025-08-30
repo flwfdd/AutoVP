@@ -79,8 +79,10 @@ function CodeEditorDialog({
       ], []);
 
       for await (const chunk of stream) {
-        fullResponse += chunk;
-        setResponse(fullResponse);
+        if (chunk.content) {
+          fullResponse += chunk.content;
+          setResponse(fullResponse);
+        }
       }
 
       if (!fullResponse) {

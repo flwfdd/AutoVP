@@ -43,7 +43,7 @@ export function createExecutableTool<TArgs>(
     return {
         name,
         description,
-        parameters: zodToJsonSchema(schema) as TArgs,
+        parameters: zodToJsonSchema(schema, { $refStrategy: 'none' }) as TArgs,
         execute: async (args: TArgs) => {
             const parsedArgs = schema.parse(args);
             return execute(parsedArgs);

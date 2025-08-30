@@ -45,11 +45,11 @@ const ParamLabel = React.memo(({
   );
 });
 
-const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any());
+const PythonNodeInputSchema = BaseNodeInputSchema.catchall(z.any()).describe('Input of the code, every handle key is a param id');
 type IPythonNodeInput = z.infer<typeof PythonNodeInputSchema>;
 
 const PythonNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.any().describe('output of the code'),
+  output: z.any().describe('Output of the code execution result'),
 });
 type IPythonNodeOutput = z.infer<typeof PythonNodeOutputSchema>;
 
@@ -64,22 +64,23 @@ Then the real code is:
 def main(name):
   return f"Hello, {name}!"
 \`\`\`
-However, you **should not** output the main function, just output the code in it directly.
+However, you should not output the main function, just output the code in it directly.
 
 **Important Notes:**
-- You can use print() statements for debugging - they will be captured as logs but won't affect the output
-- The return value will be the actual output of the node
+- You can use print() statements for debugging - they will be captured as logs but won't affect the output.
+- The return value will be the actual output of the node.
 - If you want to output an image, you should convert the image to a url or base64 src then return it.
-- The 3rd-party packages you can **ONLY** use are: requests, beautifulsoup4, numpy, matplotlib. **IMPORTANT: DO NOT use non-ascii characters(e.g. CJK) in matplotlib plot, it will cause error**
+- The 3rd-party packages you can **ONLY** use are: requests, beautifulsoup4, numpy, matplotlib.
+- DO NOT use non-ascii characters(e.g. CJK) in matplotlib plot, it will cause error
 `;
 
 const PythonNodeConfigSchema = BaseNodeConfigSchema.extend({
   params: z.array(
     z.object({
-      id: z.string().describe('id of the param, corresponding to an input key'),
-      name: z.string().describe('name of the param, used in the code'),
+      id: z.string().describe('Corresponding to an input handle key'),
+      name: z.string().describe('Name of the param, used as a variable in the code'),
     })
-  ).describe('parameters to pass to the code'),
+  ).describe('Input parameters to pass to the code'),
   code: z.string().describe(codeDescription),
 });
 type IPythonNodeConfig = z.infer<typeof PythonNodeConfigSchema>;
@@ -116,7 +117,9 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
   outputSchema: PythonNodeOutputSchema,
   id: 'python',
   name: 'Python',
-  description: 'Python node runs code in a function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
+  description: 'Python node runs code in a function.\n' +
+    'You can use the inputs as variables directly.\n' +
+    'The value returned will be the output.',
   defaultConfig: { name: 'New Python', description: '', code: '', params: [] },
   defaultState: { ...BaseNodeDefaultState, fullOutput: '' },
   logFormatter: ((config: IPythonNodeConfig, state: IPythonNodeState, log: INodeRunLog<IPythonNodeInput, IPythonNodeOutput>) => {

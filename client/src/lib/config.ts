@@ -6,6 +6,8 @@ const config = {
     models: ['kimi-k2-instruct', 'gemini-2.5-pro', 'gpt-5-chat-latest', 'o4-mini', 'claude-sonnet-4-20250514'],
   },
   codeEditorModel: 'kimi-k2-instruct',
+  // codeEditorModel: 'claude-sonnet-4-20250514',
+  // codeEditorModel: 'deepseek-v3.1',
 };
 
 export default config;

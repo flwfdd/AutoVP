@@ -5,16 +5,16 @@ import React, { useCallback } from 'react';
 import { z } from "zod";
 import BaseNode from './base/BaseNode';
 
-const TextNodeInputSchema = BaseNodeInputSchema.extend({});
+const TextNodeInputSchema = BaseNodeInputSchema.describe('No input handle');
 type ITextNodeInput = z.infer<typeof TextNodeInputSchema>;
 
 const TextNodeOutputSchema = BaseNodeOutputSchema.extend({
-  text: z.string().describe('text to output'),
+  text: z.string().describe('Text to output'),
 });
 type ITextNodeOutput = z.infer<typeof TextNodeOutputSchema>;
 
 const TextNodeConfigSchema = BaseNodeConfigSchema.extend({
-  text: z.string().describe('text to output'),
+  text: z.string().describe('Text to output'),
 });
 type ITextNodeConfig = z.infer<typeof TextNodeConfigSchema>;
 

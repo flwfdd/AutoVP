@@ -8,10 +8,10 @@ const ImageNodeInputSchema = BaseNodeInputSchema.extend({
 });
 type IImageNodeInput = z.infer<typeof ImageNodeInputSchema>;
 
-const ImageNodeOutputSchema = BaseNodeOutputSchema.extend({});
+const ImageNodeOutputSchema = BaseNodeOutputSchema.describe('No output handle');
 type IImageNodeOutput = z.infer<typeof ImageNodeOutputSchema>;
 
-const ImageNodeConfigSchema = BaseNodeConfigSchema.extend({});
+const ImageNodeConfigSchema = BaseNodeConfigSchema;
 type IImageNodeConfig = z.infer<typeof ImageNodeConfigSchema>;
 
 type IImageNodeState = IBaseNodeState;

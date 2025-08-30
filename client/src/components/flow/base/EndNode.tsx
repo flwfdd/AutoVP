@@ -5,14 +5,14 @@ import { z } from 'zod';
 import BaseNode from './BaseNode';
 
 const EndNodeInputSchema = BaseNodeInputSchema.extend({
-  value: z.any(),
+  value: z.any().describe('Output of the flow, corresponding to the only handle'),
 });
 type IEndNodeInput = z.infer<typeof EndNodeInputSchema>;
 
-const EndNodeOutputSchema = z.any();
+const EndNodeOutputSchema = z.any().describe('No output handle');
 type IEndNodeOutput = z.infer<typeof EndNodeOutputSchema>;
 
-const EndNodeConfigSchema = BaseNodeConfigSchema.extend({});
+const EndNodeConfigSchema = BaseNodeConfigSchema;
 type IEndNodeConfig = z.infer<typeof EndNodeConfigSchema>;
 
 type IEndNodeState = IBaseNodeState;
@@ -23,7 +23,9 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
   configSchema: EndNodeConfigSchema,
   id: 'end',
   name: 'End',
-  description: 'End node can be connected to multiple nodes.\nThe output is the first executed node\'s output.',
+  description: 'End node can be connected to multiple previous nodes.\n' +
+    'The value will be the first previous executed node\'s output.\n' +
+    'The output of the flow is the value of the end node.',
   defaultConfig: {
     name: 'End',
     description: '',

@@ -43,22 +43,23 @@ const ParamLabel = React.memo(({
   );
 });
 
-const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any())
+const JavaScriptNodeInputSchema = BaseNodeInputSchema.catchall(z.any()).describe('Input of the code, every handle key is a param id');
 type IJavaScriptNodeInput = z.infer<typeof JavaScriptNodeInputSchema>;
 
 const JavaScriptNodeOutputSchema = BaseNodeOutputSchema.extend({
-  output: z.any().describe('output of the code'),
+  output: z.any().describe('Output of the code execution result'),
 });
 type IJavaScriptNodeOutput = z.infer<typeof JavaScriptNodeOutputSchema>;
 
 const codeDescription = `
 The code will be executed directly within an async function. 
-Any parameters defined for the node can be used directly as variables within the code.
+Any parameters defined for the node can be used directly by their names as variables within the code.
 The value returned by the code will be the output of the node.
 
 **Important Notes:**
-- You can use console.log() statements for debugging - they will be captured as logs but won't affect the output
+- You can use \`console.log()\` for debugging - they will be captured as logs but won't affect the output
 - The return value will be the actual output of the node
+- You should not output the wrapping async function, however you can define sub functions if you need
 
 For example, if there is a parameter "name", and we want to output the result of "Hello, {name}!", the code should be:
 \`\`\`javascript
@@ -69,10 +70,10 @@ return \`Hello, \${name}!\`;
 const JavaScriptNodeConfigSchema = BaseNodeConfigSchema.extend({
   params: z.array(
     z.object({
-      id: z.string().describe('id of the param, corresponding to an input key'),
-      name: z.string().describe('name of the param, used in the code'),
+      id: z.string().describe('Corresponding to an input key'),
+      name: z.string().describe('Name of the param, used in the code'),
     })
-  ).describe('parameters to pass to the code'),
+  ).describe('Input parameters to pass to the code'),
   code: z.string().describe(codeDescription),
 });
 type IJavaScriptNodeConfig = z.infer<typeof JavaScriptNodeConfigSchema>;
@@ -87,7 +88,9 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   outputSchema: JavaScriptNodeOutputSchema,
   id: 'javascript',
   name: 'JavaScript',
-  description: 'JavaScript node runs code in an async function.\nYou can use the inputs as variables directly.\nThe value returned will be the output.',
+  description: 'JavaScript node runs code in an async function.\n' +
+    'You can use the inputs as variables directly.\n' +
+    'The value returned will be the output.',
   defaultConfig: { name: 'New JavaScript', description: '', code: '', params: [] },
   defaultState: { ...BaseNodeDefaultState, fullOutput: '' },
   logFormatter: ((config: IJavaScriptNodeConfig, state: IJavaScriptNodeState, log: INodeRunLog<IJavaScriptNodeInput, IJavaScriptNodeOutput>) => {
