@@ -98,8 +98,8 @@ Call the generate_info tool to generate the name and description.`;
 
       if (result.tool_calls && result.tool_calls.length > 0) {
         const toolCall = result.tool_calls[0];
-        if (toolCall.function.name === "generate_info" && toolCall.function.arguments) {
-          const args = JSON.parse(toolCall.function.arguments);
+        if (toolCall.name === "generate_info" && toolCall.arguments) {
+          const args = JSON.parse(toolCall.arguments);
           setName(args.name || initialName);
           setDescription(args.description || initialDescription);
           toast.success("Name and description generated successfully!");
@@ -141,6 +141,7 @@ Call the generate_info tool to generate the name and description.`;
                   onClick={handleAutoGenerate}
                   disabled={isGenerating}
                   className="h-6 px-2 text-xs"
+                  title="Auto generate name and description by Agent"
                 >
                   {isGenerating ? (
                     <>

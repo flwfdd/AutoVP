@@ -76,16 +76,31 @@ interface AICopilotDialogProps {
   setNodeReviewed: (flowId: string, nodeId: string, reviewed: boolean) => void;
 }
 
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'tool';
-  content: string;
+interface ChatMessage extends Message {
   timestamp: number;
-  toolCalls?: {
-    id: string;
-    name: string;
-    arguments: string;
-  }[];
 }
+
+
+function tagContext(dslStr: string, dslErr: string) {
+  return `<DSL Context>
+DSL:
+\`\`\`
+${dslStr}
+\`\`\`
+
+${dslErr ? `Error:
+\`\`\`
+${dslErr}
+\`\`\`
+` : ''}
+</DSL Context>`;
+}
+
+function removeTagContext(content: string) {
+  return content.replace(/<DSL Context>[\s\S]*?<\/DSL Context>/g, '');
+}
+
+
 
 function AICopilotDialog({
   isOpen,
@@ -143,31 +158,17 @@ function AICopilotDialog({
     }
   }, [chatHistory, responseRef, isAiLoading]);
 
-  const handleAiAction = async (withDslError: boolean = false) => {
+  const handleAiAction = async () => {
     if (isAiLoading || !prompt.trim()) return;
-
     setIsAiLoading(true);
-
-    // Add user message to chat history
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: prompt.trim(),
-      timestamp: Date.now()
-    };
-
-    setChatHistory(prev => [...prev, userMessage]);
-    setPrompt(''); // Clear input
 
     // Helper function to get current DSL
     const getCurrentDSL = () => {
-      console.log('getCurrentDSL from ref:', dslRef.current);
-      // 深度克隆以避免工具函数直接修改 ref 中的对象，导致意外的副作用
       return dslRef.current;
     };
 
     // Helper function to update DSL and editor
     const updateDSLAndEditor = (newDSL: unknown, successMessage: string) => {
-      console.log('updateDSLAndEditor', newDSL);
       try {
         // 验证 DSL
         const validatedDSL = loadDSL(newDSL, nodeTypeMap, newFlowNodeType);
@@ -176,11 +177,12 @@ function AICopilotDialog({
         dslRef.current = newDSL as IDSL;
 
         // 异步更新 state，用于 UI 渲染和父组件通信
-        setDslString(JSON.stringify(newDSL, null, 2));
+        const newDSLStr = JSON.stringify(newDSL, null, 2);
+        setDslString(newDSLStr);
         setDSL(dumpDSL(validatedDSL));
 
         toast.success(successMessage);
-        return successMessage + ' The flow has been validated and applied.';
+        return successMessage + ' The flow has been validated and applied.' + '\n\n' + tagContext(newDSLStr, '');
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(error);
@@ -229,7 +231,6 @@ function AICopilotDialog({
       EditNodeParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        console.log('edit_node currentDSL', currentDSL);
         const flowId = args.flowId;
 
         // Find the target flow in the flows array
@@ -356,7 +357,6 @@ function AICopilotDialog({
       EditFlowParamsSchema,
       async (args) => {
         const currentDSL = getCurrentDSL();
-        console.log('edit_flow currentDSL', currentDSL);
         const flowId = args.flowId;
 
         // Find the target flow
@@ -426,14 +426,14 @@ Use the user's language for explanations and diagrams, but must keep all paramet
 # Core Principles
 1. Clarify First, Never Assume: If any part of the user's request is unclear or ambiguous, you MUST ask for clarification before proceeding. Do not make assumptions about the user's intent.
 2. Plan and Iterate, Don't Monologue: For new or complex requests, first propose a clear plan of action. Wait for user confirmation before proceeding.
-3. Visualize with Mermaid: Use Mermaid flowchart diagrams (flowchart TD) as a communication tool. Sketch out your plan and show the updated structure after significant changes to ensure alignment with the user.
+3. Visualize with Mermaid: Use Mermaid flowchart diagrams (flowchart TD) as a communication tool. Sketch out your plan and show the updated structure after significant changes to ensure alignment with the user. Hint: Node ID in flowchart can't be reserved words, like start, end, etc.
 4. Use Tools, Don't Print DSL: You MUST use the provided tools to modify the flow. NEVER output the raw DSL JSON in your response.
 
 # Standard Workflow
 1. Acknowledge & Clarify: Acknowledge the user's request. If there's any ambiguity, ask clarifying questions immediately.
 2. Propose a Plan: Explain your plan in detail: what the flow will do, the nodes you'll use, and the overall logic.
-3. Sketch with Mermaid (Optional): Provide a simple Mermaid diagram to visualize the proposed structure.
-4. Await Confirmation (Optional): Wait for the user to approve the plan before making any changes.
+3. Sketch with Mermaid: Provide a simple Mermaid diagram to visualize the proposed structure.
+4. Await Confirmation: Wait for the user to approve the plan before making any changes.
 5. Execute with Tools: Once approved, use the appropriate tools to build the flow.
 6. Confirm Completion: Announce when the task is complete and summary.
 
@@ -509,28 +509,19 @@ ${JSON.stringify(zodToJsonSchema(nodeType.configSchema, { name: nodeType.id, $re
 
     try {
       // Build conversation history messages
-      const messages: Message[] = [
-        { role: 'system', content: systemPrompt },
-        ...chatHistory
-          .filter(msg => msg.role !== 'tool') // 排除工具消息，因为会在 react 函数内部处理
-          .map(msg => ({ role: msg.role, content: msg.content })),
+      const newChatHistory: ChatMessage[] = [
+        ...chatHistory,
         {
           role: 'user',
-          content: `${userMessage.content}
+          content: prompt.trim() + '\n\n' + tagContext(dslString, dslError),
+          timestamp: Date.now()
+        }];
+      setChatHistory(newChatHistory);
+      setPrompt(''); // Clear input
 
-Current DSL:
-\`\`\`json
-${dslString}
-\`\`\`
-
-${withDslError ? `
-Current DSL Error:
-\`\`\`
-${dslError}
-\`\`\`
-` : ''}
-`
-        },
+      const messages: Message[] = [
+        { role: 'system', content: systemPrompt },
+        ...newChatHistory,
       ];
 
       // Use reactStream function with tools to get streaming events
@@ -569,7 +560,7 @@ ${dslError}
                 }
 
                 // 更新 tool calls
-                const toolCalls = [...(lastMessage.toolCalls || [])];
+                const toolCalls = [...(lastMessage.tool_calls || [])];
                 if (chunk?.tool_calls) {
                   for (const toolCallDelta of chunk.tool_calls) {
                     const index = toolCallDelta.index;
@@ -599,7 +590,7 @@ ${dslError}
                     }
                   }
                 }
-                lastMessage.toolCalls = toolCalls;
+                lastMessage.tool_calls = toolCalls;
               }
               newHistory[newHistory.length - 1] = lastMessage;
               return newHistory;
@@ -613,11 +604,11 @@ ${dslError}
               const lastMessage = newHistory[newHistory.length - 1];
               if (lastMessage && lastMessage.role === 'assistant') {
                 lastMessage.content = event.message.content || lastMessage.content;
-                lastMessage.toolCalls = event.message.tool_calls?.map(tc => ({
+                lastMessage.tool_calls = event.message.tool_calls?.map(tc => ({
                   id: tc.id,
-                  name: tc.function.name,
-                  arguments: tc.function.arguments
-                })) || lastMessage.toolCalls;
+                  name: tc.name,
+                  arguments: tc.arguments
+                })) || lastMessage.tool_calls;
               }
               newHistory[newHistory.length - 1] = lastMessage;
               return newHistory;
@@ -628,7 +619,7 @@ ${dslError}
             // 创建新的工具结果消息（只用于显示执行结果）
             setChatHistory(prev => [...prev, {
               role: 'tool',
-              content: `正在执行工具: ${event.tool_call.function.name}...`,
+              content: `Executing tool: ${event.tool_call.name}...`,
               timestamp: Date.now()
             }]);
             break;
@@ -639,6 +630,7 @@ ${dslError}
               const newHistory = [...prev];
               const lastMessage = newHistory[newHistory.length - 1];
               if (lastMessage && lastMessage.role === 'tool') {
+                lastMessage.tool_call_id = event.message.tool_call_id;
                 lastMessage.content = event.message.content || '';
               }
               return newHistory;
@@ -647,6 +639,7 @@ ${dslError}
 
           case 'end':
             // React 流程结束
+            setChatHistory(prev => prev.map(m => ({ ...m, content: removeTagContext(m.content || '') })));
             break;
         }
       }
@@ -791,7 +784,7 @@ ${dslError}
                 <div key={index} className={`p-3 rounded-lg ${message.role === 'user'
                   ? 'bg-primary/10 ml-8'
                   : message.role === 'tool'
-                    ? 'bg-orange-50 dark:bg-orange-950/20 mx-4 border border-orange-200 dark:border-orange-800'
+                    ? 'bg-orange-50 dark:bg-orange-900/20 mx-4 border border-orange-200 dark:border-orange-700'
                     : 'bg-muted/50 mr-8'
                   }`}>
                   <div className="flex justify-between items-center mb-2">
@@ -824,19 +817,19 @@ ${dslError}
                   </div>
                   <div className="text-sm">
                     {message.role === 'user' ? (
-                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      <div className="whitespace-pre-wrap">{removeTagContext(message.content || '')}</div>
                     ) : message.role === 'tool' ? (
                       <div>
                         {!collapsedToolResults.has(index) && (
-                          <div className="whitespace-pre-wrap">{message.content}</div>
+                          <div className="whitespace-pre-wrap">{removeTagContext(message.content || '')}</div>
                         )}
                       </div>
                     ) : (
                       <div>
-                        <MarkdownRenderer content={message.content} />
-                        {message.toolCalls && message.toolCalls.length > 0 && (
+                        <MarkdownRenderer content={removeTagContext(message.content || '')} />
+                        {message.tool_calls && message.tool_calls.length > 0 && (
                           <div className="mt-3 space-y-2">
-                            {message.toolCalls.map((toolCall, tcIndex) => (
+                            {message.tool_calls.map((toolCall, tcIndex) => (
                               <ToolCallComponent
                                 key={toolCall.id || tcIndex}
                                 toolCall={toolCall}
@@ -865,7 +858,7 @@ ${dslError}
               <div className="border rounded-md p-2 bg-red-600/10 overflow-y-auto max-h-24">
                 <pre className="text-wrap break-words text-red-600 text-sm">{dslError}</pre>
               </div>
-              <Button variant="outline" onClick={() => handleAiAction(true)}>
+              <Button variant="outline" onClick={() => handleAiAction()}>
                 Fix with AI
               </Button>
             </div>

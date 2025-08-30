@@ -256,7 +256,7 @@ const TestCaseDialog = React.memo(({
         <ScrollArea className="flex-1 max-h-[60vh]">
           {<div className="space-y-2">
             {localParams.map(param => {
-              const jsonText = typeof param.testValue === 'string' ? param.testValue : JSON.stringify(param.testValue, null, 2);
+              const jsonText = JSON.stringify(param.testValue, null, 2);
               const isInvalid = invalidJsonMap[param.id] || false;
 
               return (

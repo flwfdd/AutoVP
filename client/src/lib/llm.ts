@@ -15,7 +15,6 @@ const openai = new OpenAI({
 export interface Message {
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string | null;
-    name?: string;
     tool_call_id?: string;
     tool_calls?: ToolCall[];
 }
@@ -65,11 +64,8 @@ export function createToolCallHandler<TArgs>(
 // 工具调用类型
 export interface ToolCall {
     id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
+    name: string;
+    arguments: string;
 }
 
 export interface StartParams {
@@ -107,11 +103,8 @@ function fromOpenAIMessage(openaiMessage: OpenAI.Chat.Completions.ChatCompletion
             content: typeof openaiMessage.content === 'string' ? openaiMessage.content : null,
             tool_calls: openaiMessage.tool_calls?.map(tc => ({
                 id: tc.id,
-                type: tc.type,
-                function: {
-                    name: tc.function.name,
-                    arguments: tc.function.arguments
-                }
+                name: tc.function.name,
+                arguments: tc.function.arguments
             }))
         };
     } else if (openaiMessage.role === 'tool') {
@@ -124,7 +117,6 @@ function fromOpenAIMessage(openaiMessage: OpenAI.Chat.Completions.ChatCompletion
         return {
             role: openaiMessage.role as 'system' | 'user',
             content: typeof openaiMessage.content === 'string' ? openaiMessage.content : null,
-            name: openaiMessage.name
         };
     }
 }
@@ -148,10 +140,10 @@ function toOpenAIMessage(message: Message): OpenAI.Chat.Completions.ChatCompleti
             content: message.content || '',
             tool_calls: message.tool_calls?.map(tc => ({
                 id: tc.id,
-                type: tc.type,
+                type: 'function',
                 function: {
-                    name: tc.function.name,
-                    arguments: tc.function.arguments
+                    name: tc.name,
+                    arguments: tc.arguments
                 }
             }))
         };
@@ -165,7 +157,6 @@ function toOpenAIMessage(message: Message): OpenAI.Chat.Completions.ChatCompleti
         return {
             role: message.role as 'system' | 'user',
             content: message.content || '',
-            name: message.name
         };
     }
 }
@@ -300,11 +291,8 @@ export async function* reactStream(
                             toolCallIndex = toolCallDelta.index;
                             currentToolCall = {
                                 id: toolCallDelta.id || "",
-                                type: "function",
-                                function: {
-                                    name: "",
-                                    arguments: ""
-                                }
+                                name: "",
+                                arguments: ""
                             };
                         }
 
@@ -313,11 +301,11 @@ export async function* reactStream(
                         }
 
                         if (toolCallDelta.function?.name) {
-                            currentToolCall!.function!.name += toolCallDelta.function.name;
+                            currentToolCall!.name += toolCallDelta.function.name;
                         }
 
                         if (toolCallDelta.function?.arguments) {
-                            currentToolCall!.function!.arguments += toolCallDelta.function.arguments;
+                            currentToolCall!.arguments += toolCallDelta.function.arguments;
                         }
                     }
                 }
@@ -359,12 +347,12 @@ export async function* reactStream(
             yield { type: "tool_start", tool_call: toolCall };
 
             try {
-                const tool = toolMap.get(toolCall.function.name);
+                const tool = toolMap.get(toolCall.name);
                 if (!tool) {
-                    throw new Error(`Unknown tool: ${toolCall.function.name}`);
+                    throw new Error(`Unknown tool: ${toolCall.name}`);
                 }
 
-                const args = JSON.parse(toolCall.function.arguments);
+                const args = JSON.parse(toolCall.arguments);
 
                 // 使用类型安全的工具调用处理
                 const handler = createToolCallHandler(tool);
