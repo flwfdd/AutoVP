@@ -86,6 +86,8 @@ export const JavaScriptNodeType: INodeType<IJavaScriptNodeConfig, IJavaScriptNod
   configSchema: JavaScriptNodeConfigSchema,
   inputSchema: JavaScriptNodeInputSchema,
   outputSchema: JavaScriptNodeOutputSchema,
+  inputHandlesGetter: (config: IJavaScriptNodeConfig) => new Set(config.params.map(param => param.id)),
+  outputHandlesGetter: () => new Set(['output']),
   id: 'javascript',
   name: 'JavaScript',
   description: 'JavaScript node runs code in an async function.\n' +

@@ -99,6 +99,8 @@ export interface INodeType<C extends IBaseNodeConfig, S extends IBaseNodeState, 
   configSchema: z.ZodSchema<C>;
   inputSchema: z.ZodSchema<I>;
   outputSchema: z.ZodSchema<O>;
+  inputHandlesGetter: (config: C, state: S) => Set<string>;
+  outputHandlesGetter: (config: C, state: S) => Set<string>;
   id: string;
   name: string;
   description: string;
@@ -638,9 +640,24 @@ function loadFlow(
     if (!nodeIds.has(edgeDSL.target.nodeId)) {
       throw new Error(`Edge "${edgeDSL.id}" references non-existent target node "${edgeDSL.target.nodeId}".`);
     }
-    // 当前我们先跳过key验证，因为在我们的系统中key可能是动态的
-    // 在未来，我们可以添加更严格的key验证，例如通过收集节点类型支持的输入/输出键
-    // 或者在节点类型中添加handler定义等方式
+
+    // 验证源节点的输出key
+    const sourceNode = nodes.find(n => n.id === edgeDSL.source.nodeId);
+    if (sourceNode) {
+      const validOutputKeys = sourceNode.type.outputHandlesGetter(sourceNode.config, sourceNode.state);
+      if (!validOutputKeys.has(edgeDSL.source.key)) {
+        throw new Error(`Edge "${edgeDSL.id}" references invalid output key "${edgeDSL.source.key}" on source node "${edgeDSL.source.nodeId}". Valid output keys are: ${Array.from(validOutputKeys).join(', ')}`);
+      }
+    }
+
+    // 验证目标节点的输入key
+    const targetNode = nodes.find(n => n.id === edgeDSL.target.nodeId);
+    if (targetNode) {
+      const validInputKeys = targetNode.type.inputHandlesGetter(targetNode.config, targetNode.state);
+      if (!validInputKeys.has(edgeDSL.target.key)) {
+        throw new Error(`Edge "${edgeDSL.id}" references invalid input key "${edgeDSL.target.key}" on target node "${edgeDSL.target.nodeId}". Valid input keys are: ${Array.from(validInputKeys).join(', ')}`);
+      }
+    }
   }
 
   // 检查入度唯一：确保每个节点的每个输入连接点只连接一条边

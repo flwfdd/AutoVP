@@ -24,6 +24,8 @@ export const JsonNodeType: INodeType<IJsonNodeConfig, IJsonNodeState, IJsonNodeI
   inputSchema: JsonNodeInputSchema,
   outputSchema: JsonNodeOutputSchema,
   configSchema: JsonNodeConfigSchema,
+  inputHandlesGetter: () => new Set(),
+  outputHandlesGetter: () => new Set(['json']),
   id: 'json',
   name: 'JSON',
   description: 'JSON node provides a json value source.\n' +

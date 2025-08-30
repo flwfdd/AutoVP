@@ -26,6 +26,8 @@ export const DisplayNodeType: INodeType<IDisplayNodeConfig, IDisplayNodeState, I
   configSchema: DisplayNodeConfigSchema,
   inputSchema: DisplayNodeInputSchema,
   outputSchema: DisplayNodeOutputSchema,
+  inputHandlesGetter: () => new Set(['value']),
+  outputHandlesGetter: () => new Set(),
   id: 'display',
   name: 'Display',
   description: 'Display node displays the value by JSON stringify.',

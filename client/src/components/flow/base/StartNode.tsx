@@ -42,6 +42,8 @@ export const StartNodeType: INodeType<IStartNodeConfig, IStartNodeState, IStartN
   inputSchema: StartNodeInputSchema,
   outputSchema: StartNodeOutputSchema,
   configSchema: StartNodeConfigSchema,
+  inputHandlesGetter: () => new Set(),
+  outputHandlesGetter: (config: IStartNodeConfig) => new Set(config.params.map(param => param.id)),
   id: 'start',
   name: 'Start',
   description: 'Start node is the starting node of the flow with customizable parameters.\n' +

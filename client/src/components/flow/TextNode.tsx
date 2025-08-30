@@ -24,6 +24,8 @@ export const TextNodeType: INodeType<ITextNodeConfig, ITextNodeState, ITextNodeI
   inputSchema: TextNodeInputSchema,
   outputSchema: TextNodeOutputSchema,
   configSchema: TextNodeConfigSchema,
+  inputHandlesGetter: () => new Set(),
+  outputHandlesGetter: () => new Set(['text']),
   id: 'text',
   name: 'Text',
   description: 'Text node provides a text source.',

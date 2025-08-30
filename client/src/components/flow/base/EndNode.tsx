@@ -21,6 +21,8 @@ export const EndNodeType: INodeType<IEndNodeConfig, IEndNodeState, IEndNodeInput
   inputSchema: EndNodeInputSchema,
   outputSchema: EndNodeOutputSchema,
   configSchema: EndNodeConfigSchema,
+  inputHandlesGetter: () => new Set(['value']),
+  outputHandlesGetter: () => new Set(),
   id: 'end',
   name: 'End',
   description: 'End node can be connected to multiple previous nodes.\n' +

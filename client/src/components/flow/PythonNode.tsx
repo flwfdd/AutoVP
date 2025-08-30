@@ -115,6 +115,8 @@ export const PythonNodeType: INodeType<IPythonNodeConfig, IPythonNodeState, IPyt
   configSchema: PythonNodeConfigSchema,
   inputSchema: PythonNodeInputSchema,
   outputSchema: PythonNodeOutputSchema,
+  inputHandlesGetter: (config: IPythonNodeConfig) => new Set(config.params.map(param => param.id)),
+  outputHandlesGetter: () => new Set(['output']),
   id: 'python',
   name: 'Python',
   description: 'Python node runs code in a function.\n' +

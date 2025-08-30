@@ -43,6 +43,8 @@ export const AgentNodeType: INodeType<IAgentNodeConfig, IAgentNodeState, IAgentN
     configSchema: AgentNodeConfigSchema,
     inputSchema: AgentNodeInputSchema,
     outputSchema: AgentNodeOutputSchema,
+    inputHandlesGetter: () => new Set(['prompt']),
+    outputHandlesGetter: () => new Set(['output']),
     id: 'agent',
     name: 'Agent',
     description: 'Agent node runs LLM with ReAct pattern and can use subflows as tools.\n' +

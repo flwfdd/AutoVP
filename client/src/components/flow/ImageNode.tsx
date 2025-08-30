@@ -20,6 +20,8 @@ export const ImageNodeType: INodeType<IImageNodeConfig, IImageNodeState, IImageN
   configSchema: ImageNodeConfigSchema,
   inputSchema: ImageNodeInputSchema,
   outputSchema: ImageNodeOutputSchema,
+  inputHandlesGetter: () => new Set(['src']),
+  outputHandlesGetter: () => new Set(),
   id: 'image',
   name: 'Image',
   description: 'Displays an image from a URL or Base64 source.',

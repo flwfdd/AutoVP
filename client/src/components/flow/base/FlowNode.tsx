@@ -8,6 +8,14 @@ export function newFlowNodeType(id: string, name: string, description: string, n
     inputSchema: FlowNodeInputSchema,
     outputSchema: FlowNodeOutputSchema,
     configSchema: FlowNodeConfigSchema,
+    inputHandlesGetter: (_config: IFlowNodeConfig, state: IFlowNodeState) => {
+      const startNode = state.type.nodes.find(node => node.type.id === 'start');
+      if (startNode && startNode.config.params && startNode.config.params.length > 0) {
+        return new Set(startNode.config.params.map((param: { id: string }) => param.id));
+      }
+      return new Set();
+    },
+    outputHandlesGetter: () => new Set(['output']),
     id: id,
     name: name,
     description: description,

@@ -98,6 +98,8 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
   configSchema: BranchNodeConfigSchema,
   inputSchema: BranchNodeInputSchema,
   outputSchema: BranchNodeOutputSchema,
+  inputHandlesGetter: () => new Set(['input']),
+  outputHandlesGetter: (config: IBranchNodeConfig) => new Set(config.branches.map(branch => branch.id)),
   id: 'branch',
   name: 'Branch',
   description: 'Branch node outputs based on the condition.\n' +
