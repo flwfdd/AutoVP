@@ -1,4 +1,4 @@
-import FlowPage from "@/pages/Flow"
+import FlowPage from "@/pages/flow"
 import { Route, Routes } from "react-router"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "./components/theme-provider"

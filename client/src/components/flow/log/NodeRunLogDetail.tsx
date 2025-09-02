@@ -17,6 +17,7 @@ export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeS
     return {
       input: JSON.stringify(log.input, null, 2),
       output: JSON.stringify(log.output, null, 2),
+      error: log.error ? String(log.error) : '',
     };
   }), [nodeType.logFormatter]);
 
@@ -26,6 +27,7 @@ export default function NodeRunLogDetail<C extends INodeConfig, S extends INodeS
       ...log,
       input: formattedLog.input,
       output: formattedLog.output,
+      error: formattedLog.error,
     };
   }), [runState?.logs, logFormatter, config, state]);
 

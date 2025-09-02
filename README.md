@@ -1,4 +1,4 @@
-# AutoVP
+# ChatVisCode
 
 ## Getting Started
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Startup script for AutoVP: launches both server and client with dependency checks
+# Startup script for ChatVisCode: launches both server and client with dependency checks
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
