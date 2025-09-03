@@ -99,8 +99,8 @@ export interface INodeType<C extends IBaseNodeConfig, S extends IBaseNodeState, 
   configSchema: z.ZodSchema<C>;
   inputSchema: z.ZodSchema<I>;
   outputSchema: z.ZodSchema<O>;
-  inputHandlesGetter: (config: C, state: S) => Set<string>;
-  outputHandlesGetter: (config: C, state: S) => Set<string>;
+  inputHandlesGetter: (config: C, type: INodeType<C, S, I, O>) => Set<string>;
+  outputHandlesGetter: (config: C, type: INodeType<C, S, I, O>) => Set<string>;
   id: string;
   name: string;
   description: string;
@@ -641,23 +641,7 @@ function loadFlow(
       throw new Error(`Edge "${edgeDSL.id}" references non-existent target node "${edgeDSL.target.nodeId}".`);
     }
 
-    // 验证源节点的输出key
-    const sourceNode = nodes.find(n => n.id === edgeDSL.source.nodeId);
-    if (sourceNode) {
-      const validOutputKeys = sourceNode.type.outputHandlesGetter(sourceNode.config, sourceNode.state);
-      if (!validOutputKeys.has(edgeDSL.source.key)) {
-        throw new Error(`Edge "${edgeDSL.id}" references invalid output key "${edgeDSL.source.key}" on source node "${edgeDSL.source.nodeId}". Valid output keys are: ${Array.from(validOutputKeys).join(', ')}`);
-      }
-    }
-
-    // 验证目标节点的输入key
-    const targetNode = nodes.find(n => n.id === edgeDSL.target.nodeId);
-    if (targetNode) {
-      const validInputKeys = targetNode.type.inputHandlesGetter(targetNode.config, targetNode.state);
-      if (!validInputKeys.has(edgeDSL.target.key)) {
-        throw new Error(`Edge "${edgeDSL.id}" references invalid input key "${edgeDSL.target.key}" on target node "${edgeDSL.target.nodeId}". Valid input keys are: ${Array.from(validInputKeys).join(', ')}`);
-      }
-    }
+    // 由于开始阶段子流程的节点和边还没有被注入，所以暂时不验证输入输出key
   }
 
   // 检查入度唯一：确保每个节点的每个输入连接点只连接一条边
@@ -715,6 +699,26 @@ function loadFlow(
   };
 }
 
+// 验证输入输出key是否合法
+function validateHandles(flow: IFlow): void {
+  for (const edge of flow.edges) {
+    const sourceNode = edge.source.node;
+    const targetNode = edge.target.node;
+
+    // 验证源节点的输出 key
+    const validOutputKeys = sourceNode.type.outputHandlesGetter(sourceNode.config, sourceNode.type);
+    if (!validOutputKeys.has(edge.source.key)) {
+      throw new Error(`Edge "${edge.id}" references invalid output key "${edge.source.key}" on source node "${sourceNode.id}". Valid output keys are: ${validOutputKeys.size > 0 ? Array.from(validOutputKeys).join(', ') : '(NONE)'}`);
+    }
+
+    // 验证目标节点的输入 key
+    const validInputKeys = targetNode.type.inputHandlesGetter(targetNode.config, targetNode.type);
+    if (!validInputKeys.has(edge.target.key)) {
+      throw new Error(`Edge "${edge.id}" references invalid input key "${edge.target.key}" on target node "${targetNode.id}". Valid input keys are: ${validInputKeys.size > 0 ? Array.from(validInputKeys).join(', ') : '(NONE)'}`);
+    }
+  }
+}
+
 // 子流节点类型
 export const FlowNodeInputSchema = BaseNodeInputSchema.catchall(z.any()).describe('Will be passed to the start node of the flow, every handle key is a param id');
 export type IFlowNodeInput = z.infer<typeof FlowNodeInputSchema>;
@@ -724,7 +728,7 @@ export const FlowNodeOutputSchema = BaseNodeOutputSchema.extend({
 });
 export type IFlowNodeOutput = z.infer<typeof FlowNodeOutputSchema>;
 
-export const FlowNodeConfigSchema = BaseNodeConfigSchema;
+export const FlowNodeConfigSchema = BaseNodeConfigSchema.describe('Flow ID MUST START WITH `flow_`');
 export type IFlowNodeConfig = z.infer<typeof FlowNodeConfigSchema>;
 
 export interface IFlowNodeState extends INodeState {
@@ -775,6 +779,8 @@ export function loadDSL(
     flowNodeType.nodes = flow.nodes;
     flowNodeType.edges = flow.edges;
   });
+  // 验证输入输出key是否合法
+  flows.forEach(validateHandles);
   return {
     mainFlowId: dsl.mainFlowId,
     flowNodeTypes: flows.map(flow => flowNodeTypeMap[flow.id]),

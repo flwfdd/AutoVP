@@ -1,4 +1,4 @@
-import { BaseNodeDefaultState, FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeWithPosition, IRunFlowStack, runFlow, useNodeUIContext } from '@/lib/flow/flow';
+import { BaseNodeDefaultState, FlowNodeConfigSchema, FlowNodeInputSchema, FlowNodeOutputSchema, IEdge, IFlowNodeConfig, IFlowNodeInput, IFlowNodeOutput, IFlowNodeState, IFlowNodeType, INode, INodeContext, INodeInput, INodeOutput, INodeProps, INodeStateRun, INodeType, INodeWithPosition, IRunFlowStack, runFlow, useNodeUIContext } from '@/lib/flow/flow';
 import { useMemo } from 'react';
 import { Position } from '@xyflow/react';
 import BaseNode from './BaseNode';
@@ -8,8 +8,9 @@ export function newFlowNodeType(id: string, name: string, description: string, n
     inputSchema: FlowNodeInputSchema,
     outputSchema: FlowNodeOutputSchema,
     configSchema: FlowNodeConfigSchema,
-    inputHandlesGetter: (_config: IFlowNodeConfig, state: IFlowNodeState) => {
-      const startNode = state.type.nodes.find(node => node.type.id === 'start');
+    inputHandlesGetter: (_config: IFlowNodeConfig, type: INodeType<IFlowNodeConfig, IFlowNodeState, IFlowNodeInput, IFlowNodeOutput>) => {
+      const flowType = type as IFlowNodeType;
+      const startNode = flowType.nodes.find(node => node.type.id === 'start');
       if (startNode && startNode.config.params && startNode.config.params.length > 0) {
         return new Set(startNode.config.params.map((param: { id: string }) => param.id));
       }
@@ -76,7 +77,7 @@ export function newFlowNodeType(id: string, name: string, description: string, n
           if (startNode && startNode.config.params && startNode.config.params.length > 0) {
             // 如果 start 节点有自定义参数，为每个参数创建输入handle
             return startNode.config.params.map((param: { id: string, name: string }) => ({
-              id: param.name,
+              id: param.id,
               type: 'target' as const,
               position: Position.Left,
               label: param.name

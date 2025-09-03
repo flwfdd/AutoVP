@@ -190,6 +190,7 @@ const TestCaseDialog = React.memo(({
 }) => {
   const [localParams, setLocalParams] = useState(params);
   const [invalidJsonMap, setInvalidJsonMap] = useState<Record<string, boolean>>({});
+  const [jsonTextMap, setJsonTextMap] = useState<Record<string, string>>({});
 
   // when dialog is opened, sync params data
   useEffect(() => {
@@ -197,15 +198,21 @@ const TestCaseDialog = React.memo(({
       setLocalParams(params);
       // reset validation state
       const newInvalidJsonMap: Record<string, boolean> = {};
+      const newJsonTextMap: Record<string, string> = {};
       params.forEach(param => {
         newInvalidJsonMap[param.id] = false;
+        newJsonTextMap[param.id] = JSON.stringify(param.testValue, null, 2);
       });
       setInvalidJsonMap(newInvalidJsonMap);
+      setJsonTextMap(newJsonTextMap);
     }
   }, [isOpen, params]);
 
   const handleParamChange = (id: string, field: 'name' | 'testValue', value: string) => {
     if (field === 'testValue') {
+      // Update the text map first
+      setJsonTextMap(prev => ({ ...prev, [id]: value }));
+
       try {
         const json = JSON.parse(value);
         setLocalParams(prev => prev.map(param =>
@@ -213,9 +220,6 @@ const TestCaseDialog = React.memo(({
         ));
         setInvalidJsonMap(prev => ({ ...prev, [id]: false }));
       } catch {
-        setLocalParams(prev => prev.map(param =>
-          param.id === id ? { ...param, [field]: value } : param
-        ));
         setInvalidJsonMap(prev => ({ ...prev, [id]: true }));
       }
     } else {
@@ -256,7 +260,7 @@ const TestCaseDialog = React.memo(({
         <ScrollArea className="flex-1 max-h-[60vh]">
           {<div className="space-y-2">
             {localParams.map(param => {
-              const jsonText = JSON.stringify(param.testValue, null, 2);
+              const jsonText = jsonTextMap[param.id] || JSON.stringify(param.testValue, null, 2);
               const isInvalid = invalidJsonMap[param.id] || false;
 
               return (

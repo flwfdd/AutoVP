@@ -24,7 +24,7 @@ export const ImageNodeType: INodeType<IImageNodeConfig, IImageNodeState, IImageN
   outputHandlesGetter: () => new Set(),
   id: 'image',
   name: 'Image',
-  description: 'Displays an image from a URL or Base64 source.',
+  description: 'Displays an image from a URL or Base64 source.\nCan be used to visualize something.',
   defaultConfig: {
     name: 'New Image',
     description: '',
