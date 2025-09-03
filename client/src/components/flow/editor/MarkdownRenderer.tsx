@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import rehypeRaw from 'rehype-raw';
+import mermaid from 'mermaid';
 
 // 导入常用语言支持
 import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash';
@@ -39,42 +40,92 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [svgContent, setSvgContent] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
-  const mermaid = {
-    code: code,
-    theme: 'default',
-  }
-  const jsonString = JSON.stringify(mermaid)
-  let binaryString = '';
-  const uint8Array = new TextEncoder().encode(jsonString);
-  uint8Array.forEach((byte) => {
-    binaryString += String.fromCharCode(byte);
-  });
-  const base64Encoded = btoa(binaryString);
-  const base64url = base64Encoded
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  useEffect(() => {
+    // 初始化 mermaid 配置
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+    });
 
-  const mermaidUrl = `https://mermaid.ink/svg/${base64url}`;
+    // 防抖渲染，避免快速输入时重复渲染
+    const timeoutId = setTimeout(async () => {
+      try {
+        // 重置状态
+        setIsLoaded(false);
+        setHasError(false);
+        setErrorMessage('');
 
-  const handleImageLoad = () => {
-    setIsLoaded(true);
-    setHasError(false);
-  };
+        // 生成唯一的 ID
+        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
 
-  const handleImageError = () => {
-    setHasError(true);
-    setIsLoaded(false);
-  };
+        // 创建一个临时的 DOM 元素供 mermaid 使用
+        const tempDiv = document.createElement('div');
+        tempDiv.id = id;
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '-9999px';
+        document.body.appendChild(tempDiv);
+
+        try {
+          // 渲染 mermaid 图表
+          const { svg } = await mermaid.render(id, code);
+
+          // 使用状态来存储 SVG 内容
+          setSvgContent(svg);
+          setIsLoaded(true);
+        } finally {
+          // 清理临时元素
+          if (tempDiv.parentNode) {
+            tempDiv.parentNode.removeChild(tempDiv);
+          }
+        }
+      } catch (error) {
+        setHasError(true);
+        setIsLoaded(false);
+        setErrorMessage(error instanceof Error ? error.message : 'Unknown error');
+      }
+    }, 300); // 300ms 防抖延迟
+
+    // 清理函数：清除定时器和移除 mermaid 创建的临时元素
+    return () => {
+      clearTimeout(timeoutId);
+      // 清理所有以 'mermaid-' 开头的 ID 的元素
+      const mermaidElements = document.querySelectorAll('[id^="mermaid-"]');
+      mermaidElements.forEach(element => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
+    };
+  }, [code]);
+
+  // 组件卸载时清理所有 mermaid 元素
+  useEffect(() => {
+    return () => {
+      // 清理所有以 'mermaid-' 开头的 ID 的元素
+      const mermaidElements = document.querySelectorAll('[id^="mermaid-"]');
+      mermaidElements.forEach(element => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+      });
+    };
+  }, []);
 
   if (hasError) {
     return (
       <div className="my-4 p-2 border rounded-lg bg-background">
-        <pre className="bg-muted p-4 rounded text-sm overflow-auto">
-          Mermaid rendering failed, original code:<br />
-          {code}
-        </pre>
+        <div className="bg-muted p-4 rounded text-sm">
+          <div className="text-red-600 font-medium mb-2">Mermaid rendering failed:</div>
+          <div className="text-xs text-muted-foreground mb-2">{errorMessage}</div>
+          <pre className="bg-background p-2 rounded text-xs overflow-auto">
+            {code}
+          </pre>
+        </div>
       </div>
     );
   }
@@ -82,16 +133,11 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
   return (
     <>
       <div className="my-4 p-4 border rounded-lg bg-background">
-        <img
-          src={mermaidUrl}
-          alt="Mermaid Diagram"
-          className={`max-w-full max-h-96 mx-auto cursor-pointer transition-opacity duration-200 ${isLoaded ? 'opacity-100' : 'opacity-0'
-            }`}
-          style={{ display: 'block' }}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
+        <div
+          className={`max-w-full max-h-96 mx-auto cursor-pointer transition-opacity duration-200 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setIsModalOpen(true)}
           title="Click to enlarge"
+          dangerouslySetInnerHTML={{ __html: svgContent }}
         />
         {!isLoaded && !hasError && (
           <div className="flex items-center justify-center h-24">
@@ -103,11 +149,11 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
       {/* 模态框 */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black bg-opacity-50 z-50"
           onClick={() => setIsModalOpen(false)}
         >
           <div className="bg-background w-full h-full flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b">
+            <div className="flex justify-between items-center p-4 border-b flex-shrink-0">
               <h3 className="text-lg font-semibold">Mermaid Diagram</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -116,13 +162,10 @@ const MermaidRenderer: React.FC<{ code: string }> = ({ code }) => {
                 ✕
               </button>
             </div>
-            <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
-              <img
-                src={mermaidUrl}
-                alt="Mermaid Diagram"
-                className="max-w-full max-h-full object-contain"
-                style={{ display: 'block' }}
-                onError={handleImageError}
+            <div className="flex-1 flex items-center justify-center p-4 overflow-auto min-h-0">
+              <div
+                className="w-full h-full flex items-center justify-center"
+                dangerouslySetInnerHTML={{ __html: svgContent }}
               />
             </div>
           </div>

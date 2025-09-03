@@ -1,0 +1,271 @@
+{
+  "mainFlowId": "flow_main",
+  "flows": [
+    {
+      "id": "flow_main",
+      "name": "Deep Research",
+      "description": "Main research flow with agent using search and web retrieval tools",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "position": {
+            "x": 50,
+            "y": 100
+          },
+          "config": {
+            "name": "Research Query",
+            "description": "Input the research query or topic to investigate",
+            "params": [
+              {
+                "id": "query",
+                "name": "Research Query",
+                "testValue": "Tell me about FDUVIS lab"
+              }
+            ]
+          }
+        },
+        {
+          "id": "research_agent",
+          "type": "agent",
+          "position": {
+            "x": 350.1660132612949,
+            "y": 26.543316400823507
+          },
+          "config": {
+            "name": "Deep Research Agent",
+            "description": "Agent that conducts comprehensive research using search and web retrieval tools",
+            "systemPrompt": "You are a research agent specializing in conducting deep, comprehensive research on any topic. You have access to two tools:\n\n1. Search Tool: Use this to find relevant sources, articles, and information about the topic using Tavily search\n2. Web Retrieval Tool: Use this to get the full content from specific web pages or URLs\n\nYour research process should be:\n1. First, use the search tool to find relevant sources and get an overview of the topic\n2. Identify the most promising URLs or sources from the search results\n3. Use the web retrieval tool to get detailed content from those sources\n4. Synthesize the information from multiple sources to provide a comprehensive answer\n5. Cite your sources and provide a well-structured response\n\nBe thorough, analytical, and provide detailed insights based on the retrieved information.",
+            "model": "deepseek-v3.1",
+            "toolFlowIds": [
+              "flow_search",
+              "flow_web_retrieval"
+            ],
+            "maxIterations": 10
+          }
+        },
+        {
+          "id": "display_results",
+          "type": "display",
+          "position": {
+            "x": 784.7647733419886,
+            "y": 310.0939954560208
+          },
+          "config": {
+            "name": "Research Results",
+            "description": "Display the comprehensive research results"
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "position": {
+            "x": 786.8743481553607,
+            "y": 632.722535973169
+          },
+          "config": {
+            "name": "End",
+            "description": "End of research flow"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start_to_agent",
+          "source": {
+            "nodeId": "start",
+            "key": "query"
+          },
+          "target": {
+            "nodeId": "research_agent",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "agent_to_display",
+          "source": {
+            "nodeId": "research_agent",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "display_results",
+            "key": "value"
+          }
+        },
+        {
+          "id": "agent_to_end",
+          "source": {
+            "nodeId": "research_agent",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "end",
+            "key": "value"
+          }
+        }
+      ]
+    },
+    {
+      "id": "flow_search",
+      "name": "Search Tool",
+      "description": "Search tool using Tavily API to find relevant information and sources",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "position": {
+            "x": 50,
+            "y": 100
+          },
+          "config": {
+            "name": "Search Query",
+            "description": "Input search query for Tavily",
+            "params": [
+              {
+                "id": "query",
+                "name": "Search Query",
+                "testValue": "FDUVIS"
+              }
+            ]
+          }
+        },
+        {
+          "id": "tavily_search",
+          "type": "python",
+          "position": {
+            "x": 378.4,
+            "y": 67.91111111111111
+          },
+          "config": {
+            "name": "Tavily Search API",
+            "description": "Perform search using Tavily API",
+            "params": [
+              {
+                "id": "query",
+                "name": "query"
+              }
+            ],
+            "code": "import requests\nimport json\n\n# Tavily API endpoint\napi_key = \"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\"  # Replace with your actual Tavily API key\nurl = \"https://api.tavily.com/search\"\n\nheaders = {\n    \"Content-Type\": \"application/json\",\n    \"Authorization\": f\"Bearer {api_key}\"\n}\n\ndata = {\n    \"query\": query,\n    \"auto_parameters\": True,\n    \"search_depth\": \"basic\",\n    \"max_results\": 20,\n}\n\ntry:\n    response = requests.post(url, json=data, headers=headers)\n    \n    if response.status_code == 200:\n        return response.json()\n    else:\n        return {\n            \"error\": f\"API request failed with status code: {response.status_code}\",\n            \"message\": response.text,\n            \"query\": query\n        }\n        \nexcept Exception as e:\n    return {\n        \"error\": f\"Search failed: {str(e)}\",\n        \"query\": query\n    }"
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "position": {
+            "x": 674.7111111111111,
+            "y": 101.6888888888889
+          },
+          "config": {
+            "name": "Search Results",
+            "description": "Return search results from Tavily"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start_to_search",
+          "source": {
+            "nodeId": "start",
+            "key": "query"
+          },
+          "target": {
+            "nodeId": "tavily_search",
+            "key": "query"
+          }
+        },
+        {
+          "id": "search_to_end",
+          "source": {
+            "nodeId": "tavily_search",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "end",
+            "key": "value"
+          }
+        }
+      ]
+    },
+    {
+      "id": "flow_web_retrieval",
+      "name": "Crawler Tool",
+      "description": "Simple web crawler to retrieve content from specific URLs",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "position": {
+            "x": 164.84444444444446,
+            "y": 169.24444444444447
+          },
+          "config": {
+            "name": "URL Input",
+            "description": "Input URL to retrieve content from",
+            "params": [
+              {
+                "id": "url",
+                "name": "URL",
+                "testValue": "https://fduvis.net"
+              }
+            ]
+          }
+        },
+        {
+          "id": "web_crawler",
+          "type": "python",
+          "position": {
+            "x": 500,
+            "y": 100
+          },
+          "config": {
+            "name": "Web Page Crawler",
+            "description": "Crawl and extract content from web pages",
+            "params": [
+              {
+                "id": "url",
+                "name": "url"
+              }
+            ],
+            "code": "import requests\n\ntry:\n    # Set headers to mimic a real browser\n    headers = {\n        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',\n        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',\n        'Accept-Language': 'en-US,en;q=0.5',\n        'Accept-Encoding': 'gzip, deflate',\n        'Connection': 'keep-alive',\n    }\n    \n    # Make the request\n    response = requests.get(url, headers=headers, timeout=30)\n    response.raise_for_status()\n    \n    # Return the original HTML content\n    return response.text\n    \nexcept requests.exceptions.RequestException as e:\n    return f\"Request failed: {str(e)}\"\nexcept Exception as e:\n    return f\"Error: {str(e)}\""
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "position": {
+            "x": 819.9555555555556,
+            "y": 154.04444444444442
+          },
+          "config": {
+            "name": "Page Content",
+            "description": "Return extracted web page content"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start_to_crawler",
+          "source": {
+            "nodeId": "start",
+            "key": "url"
+          },
+          "target": {
+            "nodeId": "web_crawler",
+            "key": "url"
+          }
+        },
+        {
+          "id": "crawler_to_end",
+          "source": {
+            "nodeId": "web_crawler",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "end",
+            "key": "value"
+          }
+        }
+      ]
+    }
+  ]
+}

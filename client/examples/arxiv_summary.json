@@ -1,0 +1,136 @@
+{
+  "mainFlowId": "flow_main",
+  "flows": [
+    {
+      "id": "flow_main",
+      "name": "ArXiv Paper Summarizer",
+      "description": "Fetches latest papers from an arXiv category and creates a summary",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "position": {
+            "x": 50,
+            "y": 100
+          },
+          "config": {
+            "name": "Start",
+            "description": "Input arXiv category (e.g., cs.HC, cs.AI)",
+            "params": [
+              {
+                "id": "category",
+                "name": "ArXiv Category",
+                "testValue": "cs.HC"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fetch_papers",
+          "type": "python",
+          "position": {
+            "x": 384,
+            "y": 38
+          },
+          "config": {
+            "name": "Fetch Latest Papers",
+            "description": "Fetch the latest papers from arXiv for the given category",
+            "params": [
+              {
+                "id": "category",
+                "name": "category"
+              }
+            ],
+            "code": "import requests\nimport xml.etree.ElementTree as ET\nfrom datetime import datetime, timedelta\n\n# ArXiv API endpoint\nbase_url = 'http://export.arxiv.org/api/query?'\n\n# Search for recent papers in the category (last 7 days)\nsearch_query = f'cat:{category}'\nsort_by = 'submittedDate'\nsort_order = 'descending'\nmax_results = 20\n\n# Build the query URL\nquery_url = f'{base_url}search_query={search_query}&sortBy={sort_by}&sortOrder={sort_order}&max_results={max_results}'\n\nresponse = requests.get(query_url)\n\nif response.status_code != 200:\n    return f\"Error fetching papers: {response.status_code}\"\n\n# Parse XML response\nroot = ET.fromstring(response.content)\nnamespace = {'atom': 'http://www.w3.org/2005/Atom'}\n\npapers = []\n\nfor entry in root.findall('atom:entry', namespace):\n    title = entry.find('atom:title', namespace).text.strip().replace('\\n', ' ')\n    summary = entry.find('atom:summary', namespace).text.strip().replace('\\n', ' ')\n    authors = [author.find('atom:name', namespace).text for author in entry.findall('atom:author', namespace)]\n    published = entry.find('atom:published', namespace).text\n    link = entry.find('atom:id', namespace).text\n    \n    paper_info = {\n        'title': title,\n        'authors': ', '.join(authors),\n        'summary': summary,\n        'published': published,\n        'link': link\n    }\n    \n    papers.append(paper_info)\n\nreturn {\n    'category': category,\n    'papers': papers,\n    'count': len(papers)\n}"
+          }
+        },
+        {
+          "id": "summarizer_agent",
+          "type": "agent",
+          "position": {
+            "x": 704,
+            "y": 20
+          },
+          "config": {
+            "name": "Paper Summarizer Agent",
+            "description": "AI agent that analyzes and summarizes the latest papers",
+            "systemPrompt": "You are an expert academic researcher and science communicator. Your task is to analyze a collection of recent arXiv papers from a specific category and create a comprehensive summary.\n\nYour summary should include:\n1. **Overview**: Brief introduction to the research area and what papers were analyzed\n2. **Key Themes**: Identify 3-5 major themes or trends across the papers\n3. **Notable Papers**: Highlight 3-4 most interesting or significant papers with brief descriptions\n4. **Emerging Trends**: Discuss any emerging methodologies, applications, or research directions\n5. **Summary**: Conclude with key insights about the current state of research in this area\n\nMake your analysis accessible to both experts and interested non-experts. Use clear, engaging language while maintaining academic accuracy.",
+            "model": "kimi-k2-instruct",
+            "toolFlowIds": [],
+            "maxIterations": 3
+          }
+        },
+        {
+          "id": "display_summary",
+          "type": "display",
+          "position": {
+            "x": 1046,
+            "y": -8
+          },
+          "config": {
+            "name": "Display Summary",
+            "description": "Display the generated summary"
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "position": {
+            "x": 1049.8970506349117,
+            "y": 289.1733136156391
+          },
+          "config": {
+            "name": "End",
+            "description": "Output the final summary"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start_to_fetch",
+          "source": {
+            "nodeId": "start",
+            "key": "category"
+          },
+          "target": {
+            "nodeId": "fetch_papers",
+            "key": "category"
+          }
+        },
+        {
+          "id": "fetch_to_agent",
+          "source": {
+            "nodeId": "fetch_papers",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "summarizer_agent",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "agent_to_display",
+          "source": {
+            "nodeId": "summarizer_agent",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "display_summary",
+            "key": "value"
+          }
+        },
+        {
+          "id": "agent_to_end",
+          "source": {
+            "nodeId": "summarizer_agent",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "end",
+            "key": "value"
+          }
+        }
+      ]
+    }
+  ]
+}

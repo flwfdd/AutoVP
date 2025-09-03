@@ -1,0 +1,300 @@
+{
+  "mainFlowId": "flow_main",
+  "flows": [
+    {
+      "id": "flow_main",
+      "name": "Paper Review System",
+      "description": "Evaluates academic papers using three LLMs across technology, innovation, and writing criteria",
+      "nodes": [
+        {
+          "id": "start",
+          "type": "start",
+          "position": {
+            "x": -446,
+            "y": 476
+          },
+          "config": {
+            "name": "Paper Input",
+            "description": "Input the paper to be evaluated",
+            "params": [
+              {
+                "id": "paper",
+                "name": "Paper Content",
+                "testValue": "Sample paper about Human-AI programming in HCI..."
+              }
+            ]
+          }
+        },
+        {
+          "id": "agent_kimi",
+          "type": "agent",
+          "position": {
+            "x": -94,
+            "y": -24
+          },
+          "config": {
+            "name": "Kimi Evaluator",
+            "description": "Evaluates paper using Kimi model",
+            "systemPrompt": "You are an expert academic reviewer. Evaluate the given paper on three criteria:\n1. Technology (1-10): Technical soundness, methodology, implementation quality\n2. Innovation (1-10): Novelty, creativity, contribution to the field\n3. Writing (1-10): Clarity, organization, presentation quality\n\nProvide your evaluation in this exact JSON format:\n{\n  \"technology\": <score>,\n  \"innovation\": <score>,\n  \"writing\": <score>,\n  \"brief_comments\": \"<2-3 sentence summary of your evaluation>\"\n}",
+            "model": "kimi-k2-instruct",
+            "toolFlowIds": [],
+            "maxIterations": 1
+          }
+        },
+        {
+          "id": "agent_deepseek",
+          "type": "agent",
+          "position": {
+            "x": -92,
+            "y": 452
+          },
+          "config": {
+            "name": "DeepSeek Evaluator",
+            "description": "Evaluates paper using DeepSeek model",
+            "systemPrompt": "You are an expert academic reviewer. Evaluate the given paper on three criteria:\n1. Technology (1-10): Technical soundness, methodology, implementation quality\n2. Innovation (1-10): Novelty, creativity, contribution to the field\n3. Writing (1-10): Clarity, organization, presentation quality\n\nProvide your evaluation in this exact JSON format:\n{\n  \"technology\": <score>,\n  \"innovation\": <score>,\n  \"writing\": <score>,\n  \"brief_comments\": \"<2-3 sentence summary of your evaluation>\"\n}",
+            "model": "deepseek-v3.1",
+            "toolFlowIds": [],
+            "maxIterations": 1
+          }
+        },
+        {
+          "id": "agent_gemini",
+          "type": "agent",
+          "position": {
+            "x": -92,
+            "y": 922
+          },
+          "config": {
+            "name": "Gemini Evaluator",
+            "description": "Evaluates paper using Gemini model",
+            "systemPrompt": "You are an expert academic reviewer. Evaluate the given paper on three criteria:\n1. Technology (1-10): Technical soundness, methodology, implementation quality\n2. Innovation (1-10): Novelty, creativity, contribution to the field\n3. Writing (1-10): Clarity, organization, presentation quality\n\nProvide your evaluation in this exact JSON format:\n{\n  \"technology\": <score>,\n  \"innovation\": <score>,\n  \"writing\": <score>,\n  \"brief_comments\": \"<2-3 sentence summary of your evaluation>\"\n}",
+            "model": "gemini-2.5-pro",
+            "toolFlowIds": [],
+            "maxIterations": 1
+          }
+        },
+        {
+          "id": "collector",
+          "type": "javascript",
+          "position": {
+            "x": 218,
+            "y": 380
+          },
+          "config": {
+            "name": "Rating Collector",
+            "description": "Collects and structures ratings from all three evaluators",
+            "params": [
+              {
+                "id": "kimi_eval",
+                "name": "kimi_evaluation"
+              },
+              {
+                "id": "deepseek_eval",
+                "name": "deepseek_evaluation"
+              },
+              {
+                "id": "gemini_eval",
+                "name": "gemini_evaluation"
+              }
+            ],
+            "code": "// Parse JSON responses from each evaluator\nconst parseEvaluation = (evalText) => {\n  try {\n    // Extract JSON from the response text\n    const jsonMatch = evalText.match(/\\{[\\s\\S]*\\}/);\n    if (jsonMatch) {\n      return JSON.parse(jsonMatch[0]);\n    }\n  } catch (e) {\n    console.log('Failed to parse evaluation:', e);\n  }\n  return null;\n};\n\nconst kimiData = parseEvaluation(kimi_evaluation);\nconst deepseekData = parseEvaluation(deepseek_evaluation);\nconst geminiData = parseEvaluation(gemini_evaluation);\n\n// Structure the collected data\nconst result = {\n  evaluations: {\n    kimi: kimiData,\n    deepseek: deepseekData,\n    gemini: geminiData\n  },\n  averages: {\n    technology: ((kimiData?.technology || 0) + (deepseekData?.technology || 0) + (geminiData?.technology || 0)) / 3,\n    innovation: ((kimiData?.innovation || 0) + (deepseekData?.innovation || 0) + (geminiData?.innovation || 0)) / 3,\n    writing: ((kimiData?.writing || 0) + (deepseekData?.writing || 0) + (geminiData?.writing || 0)) / 3\n  },\n  timestamp: new Date().toISOString()\n};\n\nreturn result;"
+          }
+        },
+        {
+          "id": "reporter",
+          "type": "agent",
+          "position": {
+            "x": 592,
+            "y": 742
+          },
+          "config": {
+            "name": "Report Generator",
+            "description": "Generates a comprehensive evaluation report",
+            "systemPrompt": "You are a research coordinator who creates comprehensive evaluation reports. Based on the ratings from three different LLMs (Kimi, DeepSeek, and Gemini), create a detailed markdown report that includes:\n\n1. Executive Summary\n2. Detailed Ratings Analysis (by criteria and by evaluator)\n3. Key Insights and Consensus Areas\n4. Areas of Disagreement\n5. Final Recommendations\n\nFormat the report in clean markdown with proper headers and bullet points.",
+            "model": "kimi-k2-instruct",
+            "toolFlowIds": [],
+            "maxIterations": 1
+          }
+        },
+        {
+          "id": "visualizer",
+          "type": "python",
+          "position": {
+            "x": 596,
+            "y": 296
+          },
+          "config": {
+            "name": "Rating Visualizer",
+            "description": "Creates charts showing the evaluation results",
+            "params": [
+              {
+                "id": "ratings_data",
+                "name": "ratings_data"
+              }
+            ],
+            "code": "import matplotlib.pyplot as plt\nimport numpy as np\nimport base64\nfrom io import BytesIO\n\n# Extract data\nevals = ratings_data['evaluations']\naverages = ratings_data['averages']\n\n# Prepare data for visualization\nmodels = ['Kimi', 'DeepSeek', 'Gemini']\ncriteria = ['Technology', 'Innovation', 'Writing']\n\n# Create data matrix\ndata_matrix = []\nfor model_key in ['kimi', 'deepseek', 'gemini']:\n    model_data = evals[model_key]\n    if model_data:\n        data_matrix.append([model_data['technology'], model_data['innovation'], model_data['writing']])\n    else:\n        data_matrix.append([0, 0, 0])\n\ndata_matrix = np.array(data_matrix)\n\n# Beautiful color scheme\ncolors = ['#FF6B6B', '#4ECDC4', '#45B7D1']  # Modern, vibrant colors\ncolors_light = ['#FFE5E5', '#E8F8F7', '#E8F4FD']  # Light versions for fills\ncolors_avg = ['#FF9F43', '#26D0CE', '#A55EEA']  # Complementary colors for averages\n\n# Create figure with subplots\nfig = plt.figure(figsize=(16, 12))\nfig.patch.set_facecolor('#FAFAFA')  # Light background\n\n# Create a 2x2 grid with custom spacing\ngs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)\n\n# 1. Grouped Bar Chart\nax1 = fig.add_subplot(gs[0, 0])\nx = np.arange(len(criteria))\nwidth = 0.25\n\nbars = []\nfor i, model in enumerate(models):\n    bars.append(ax1.bar(x + i*width, data_matrix[i], width, \n                       label=model, color=colors[i], alpha=0.8,\n                       edgecolor='white', linewidth=1.5))\n\nax1.set_xlabel('Criteria', fontsize=12, fontweight='bold')\nax1.set_ylabel('Score (1-10)', fontsize=12, fontweight='bold')\nax1.set_title('Paper Evaluation Scores by Model and Criteria', \n              fontsize=14, fontweight='bold', pad=20)\nax1.set_xticks(x + width)\nax1.set_xticklabels(criteria, fontweight='bold')\nax1.legend(frameon=True, fancybox=True, shadow=True)\nax1.grid(True, alpha=0.3, linestyle='--')\nax1.set_ylim(0, 10)\nax1.set_facecolor('#FDFDFD')\n\n# Add value labels on bars\nfor i, bars_group in enumerate(bars):\n    for j, bar in enumerate(bars_group):\n        height = bar.get_height()\n        ax1.text(bar.get_x() + bar.get_width()/2., height + 0.1,\n                f'{height:.1f}', ha='center', va='bottom', fontweight='bold', fontsize=9)\n\n# 2. Polar Chart (instead of traditional radar chart)\nax2 = fig.add_subplot(gs[0, 1], projection='polar')\n\n# Calculate angles for polar chart\nangles = np.linspace(0, 2*np.pi, len(criteria), endpoint=False)\n\n# Plot each model as bars in polar coordinates\nbar_width = 0.8\nfor i, model in enumerate(models):\n    # Offset angles for each model to avoid overlap\n    offset_angles = angles + i * bar_width / len(models) - bar_width/2\n    \n    # Create polar bar chart\n    bars = ax2.bar(offset_angles, data_matrix[i], \n                   width=bar_width/len(models), \n                   label=model, \n                   color=colors[i], \n                   alpha=0.7,\n                   edgecolor='white',\n                   linewidth=1)\n\n# Customize polar chart\nax2.set_theta_offset(np.pi / 2)  # Start from top\nax2.set_theta_direction(-1)  # Clockwise\nax2.set_thetagrids(np.degrees(angles), criteria, fontweight='bold')\nax2.set_ylim(0, 10)\nax2.set_title('Polar Chart: Multi-Model Evaluation', \n              fontsize=14, fontweight='bold', pad=30)\nax2.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0), \n           frameon=True, fancybox=True, shadow=True)\nax2.grid(True, alpha=0.3)\nax2.set_facecolor('#FDFDFD')\n\n# 3. Average Scores with beautiful styling\nax3 = fig.add_subplot(gs[1, 0])\navg_scores = [averages['technology'], averages['innovation'], averages['writing']]\n\nbars = ax3.bar(criteria, avg_scores, color=colors_avg, alpha=0.8,\n               edgecolor='white', linewidth=2)\n\n# Add gradient effect\nfor i, bar in enumerate(bars):\n    bar.set_facecolor(colors_avg[i])\n\nax3.set_ylabel('Average Score (1-10)', fontsize=12, fontweight='bold')\nax3.set_title('Average Scores Across All Models', \n              fontsize=14, fontweight='bold', pad=20)\nax3.set_ylim(0, 10)\nax3.set_facecolor('#FDFDFD')\n\n# Add value labels with better styling\nfor i, (bar, v) in enumerate(zip(bars, avg_scores)):\n    ax3.text(bar.get_x() + bar.get_width()/2., v + 0.15, \n             f'{v:.1f}', ha='center', va='bottom', \n             fontweight='bold', fontsize=11, \n             bbox=dict(boxstyle=\"round,pad=0.3\", facecolor='white', alpha=0.8))\n\nax3.grid(True, alpha=0.3, linestyle='--')\n\n# 4. Model Agreement Analysis with enhanced styling\nax4 = fig.add_subplot(gs[1, 1])\nstd_devs = np.std(data_matrix, axis=0)\n\nbars = ax4.bar(criteria, std_devs, color='#FF7675', alpha=0.8,\n               edgecolor='white', linewidth=2)\n\nax4.set_ylabel('Standard Deviation', fontsize=12, fontweight='bold')\nax4.set_title('Model Agreement (Lower = More Agreement)', \n              fontsize=14, fontweight='bold', pad=20)\nax4.set_facecolor('#FDFDFD')\n\n# Add value labels\nfor i, (bar, v) in enumerate(zip(bars, std_devs)):\n    ax4.text(bar.get_x() + bar.get_width()/2., v + 0.02, \n             f'{v:.2f}', ha='center', va='bottom', \n             fontweight='bold', fontsize=11,\n             bbox=dict(boxstyle=\"round,pad=0.3\", facecolor='white', alpha=0.8))\n\nax4.grid(True, alpha=0.3, linestyle='--')\n\n# Overall styling improvements\nplt.suptitle('Paper Evaluation Analysis Dashboard', \n             fontsize=18, fontweight='bold', y=0.95)\n\n# Adjust layout\nplt.tight_layout(rect=[0, 0.03, 1, 0.95])\n\n# Convert plot to base64 string\nbuffer = BytesIO()\nplt.savefig(buffer, format='png', dpi=300, bbox_inches='tight', \n            facecolor='#FAFAFA', edgecolor='none')\nbuffer.seek(0)\nplot_data = buffer.getvalue()\nbuffer.close()\nplt.close()\n\nplot_base64 = base64.b64encode(plot_data).decode('utf-8')\nreturn f\"data:image/png;base64,{plot_base64}\""
+          }
+        },
+        {
+          "id": "display_report",
+          "type": "display",
+          "position": {
+            "x": 950.75,
+            "y": 756
+          },
+          "config": {
+            "name": "Evaluation Report",
+            "description": "Displays the comprehensive evaluation report"
+          }
+        },
+        {
+          "id": "display_charts",
+          "type": "image",
+          "position": {
+            "x": 956,
+            "y": 426
+          },
+          "config": {
+            "name": "Evaluation Charts",
+            "description": "Displays the visualization charts"
+          }
+        },
+        {
+          "id": "end",
+          "type": "end",
+          "position": {
+            "x": 950,
+            "y": 1124
+          },
+          "config": {
+            "name": "End",
+            "description": "End of evaluation process"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e1",
+          "source": {
+            "nodeId": "start",
+            "key": "paper"
+          },
+          "target": {
+            "nodeId": "agent_kimi",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "e2",
+          "source": {
+            "nodeId": "start",
+            "key": "paper"
+          },
+          "target": {
+            "nodeId": "agent_deepseek",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "e3",
+          "source": {
+            "nodeId": "start",
+            "key": "paper"
+          },
+          "target": {
+            "nodeId": "agent_gemini",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "e4",
+          "source": {
+            "nodeId": "agent_kimi",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "collector",
+            "key": "kimi_eval"
+          }
+        },
+        {
+          "id": "e5",
+          "source": {
+            "nodeId": "agent_deepseek",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "collector",
+            "key": "deepseek_eval"
+          }
+        },
+        {
+          "id": "e6",
+          "source": {
+            "nodeId": "agent_gemini",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "collector",
+            "key": "gemini_eval"
+          }
+        },
+        {
+          "id": "e7",
+          "source": {
+            "nodeId": "collector",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "reporter",
+            "key": "prompt"
+          }
+        },
+        {
+          "id": "e8",
+          "source": {
+            "nodeId": "collector",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "visualizer",
+            "key": "ratings_data"
+          }
+        },
+        {
+          "id": "e9",
+          "source": {
+            "nodeId": "reporter",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "display_report",
+            "key": "value"
+          }
+        },
+        {
+          "id": "e10",
+          "source": {
+            "nodeId": "visualizer",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "display_charts",
+            "key": "src"
+          }
+        },
+        {
+          "id": "e11",
+          "source": {
+            "nodeId": "reporter",
+            "key": "output"
+          },
+          "target": {
+            "nodeId": "end",
+            "key": "value"
+          }
+        }
+      ]
+    }
+  ]
+}
