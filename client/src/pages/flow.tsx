@@ -527,7 +527,7 @@ function Flow() {
             </Button>
             <Button variant="outline" className="w-full" onClick={handleOpenAICopilotDialog}>
               <Sparkles />
-              AI Copilot
+              AI Agent
             </Button>
             <Button variant="outline" className="w-full" onClick={handleNewFlow}>
               <Plus />

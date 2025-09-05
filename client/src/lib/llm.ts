@@ -137,7 +137,7 @@ function toOpenAIMessage(message: Message): OpenAI.Chat.Completions.ChatCompleti
     if (message.role === 'assistant') {
         return {
             role: 'assistant',
-            content: message.content || '',
+            content: message.content || ' ',
             tool_calls: message.tool_calls?.map(tc => ({
                 id: tc.id,
                 type: 'function',
@@ -150,13 +150,13 @@ function toOpenAIMessage(message: Message): OpenAI.Chat.Completions.ChatCompleti
     } else if (message.role === 'tool') {
         return {
             role: 'tool',
-            content: message.content || '',
+            content: message.content || ' ',
             tool_call_id: message.tool_call_id!
         };
     } else {
         return {
             role: message.role as 'system' | 'user',
-            content: message.content || '',
+            content: message.content || ' ',
         };
     }
 }

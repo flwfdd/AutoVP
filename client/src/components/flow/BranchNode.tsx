@@ -127,7 +127,8 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
       return acc;
     }, {});
     params.input = context.input.input;
-    const output = await workerEval(context.config.code, params);
+    const result = await workerEval(context.config.code, params);
+    const output = result.output;
     console.log(params, output);
     if (typeof output === 'string') {
       return { [output]: context.input.input };
@@ -214,7 +215,7 @@ export const BranchNodeType: INodeType<IBranchNodeConfig, IBranchNodeState, IBra
           placeholder='Condition Code'
           value={config.code}
           onChange={onCodeChange}
-          className='nowheel nodrag whitespace-pre-wrap break-all'
+          className='nowheel nodrag whitespace-pre-wrap break-all max-h-32'
         />
         <Button variant="outline" className='w-full mt-2' onClick={() => setIsEditorOpen(true)}>
           <Code /> Code Editor

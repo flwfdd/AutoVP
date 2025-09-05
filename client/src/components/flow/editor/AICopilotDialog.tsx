@@ -741,7 +741,7 @@ ${JSON.stringify(zodToJsonSchema(nodeType.configSchema, { name: nodeType.id, $re
     <div className={`fixed top-0 right-0 h-full ${isShowDSL ? 'w-full' : 'w-96'} bg-background border-l shadow-lg flex flex-col z-50`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">AI Copilot</h2>
+        <h2 className="text-lg font-semibold">AI Agent</h2>
         <Button variant="ghost" size="icon" onClick={() => setIsShowDSL(!isShowDSL)} title="Toggle DSL Editor">
           {isShowDSL ? <PanelRightClose /> : <PanelLeftClose />}
         </Button>

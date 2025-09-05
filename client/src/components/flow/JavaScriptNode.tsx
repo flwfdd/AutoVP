@@ -53,7 +53,7 @@ type IJavaScriptNodeOutput = z.infer<typeof JavaScriptNodeOutputSchema>;
 
 const codeDescription = `
 The code will be executed directly within an async function. 
-Any parameters defined for the node can be used directly by their names as variables within the code.
+Any parameters defined for the node can be used directly by their names as variables within the code, you should not define them again.
 The value returned by the code will be the output of the node.
 
 **Important Notes:**

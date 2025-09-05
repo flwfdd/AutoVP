@@ -123,7 +123,7 @@ function BaseNode<C extends IBaseNodeConfig, S extends IBaseNodeState, I extends
           <Button
             variant="ghost"
             size="sm"
-            className="mx-1 p-2 text-xs text-muted-foreground text-left h-auto hover:text-foreground"
+            className="mx-1 p-2 text-sm text-left h-auto"
             onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
             title={isDescriptionExpanded ? "Collapse description" : "Expand description"}
           >

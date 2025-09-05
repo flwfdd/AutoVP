@@ -55,6 +55,7 @@ type IPythonNodeOutput = z.infer<typeof PythonNodeOutputSchema>;
 
 const codeDescription = `
 The code is placed in a main function with the params.
+Any parameters defined for the node can be used directly by their names as variables within the code, you should not define them again.
 For example, if there is a param called "name", and we want to output the result of "Hello, {name}!", the code should be:
 \`\`\`python
 return f"Hello, {name}!"

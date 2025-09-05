@@ -79,7 +79,7 @@ function CodeEditorDialog({
       ], []);
 
       for await (const chunk of stream) {
-        if (chunk.content) {
+        if (chunk && chunk.content) {
           fullResponse += chunk.content;
           setResponse(fullResponse);
         }
@@ -105,6 +105,7 @@ function CodeEditorDialog({
         toast.error('Failed to extract code from AI response');
       }
     } catch (error: unknown) {
+      console.error(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       setResponse(errorMessage);
       toast.error('Error during AI code generation: ' + errorMessage);
